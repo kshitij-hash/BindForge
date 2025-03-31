@@ -2,32 +2,6 @@
 
 This project aims to enhance molecular docking predictions using AI/ML techniques.
 
-## Environment Setup
-
-### Installation
-
-1. Clone this repository:
-```bash
-git clone <repository-url>
-cd ai-agent-enhanced-docking-predictions
-```
-
-3. Activate the virtual environment:
-```bash
-source .venv/bin/activate
-```
-
-## Project Structure
-
-The project is organized as follows:
-- `data/`: Contains datasets used for training and testing
-- `models/`: Contains ML model definitions
-- `scripts/`: Contains utility scripts
-- `notebooks/`: Contains Jupyter notebooks for exploration
-
-## License
-
-[Add license information here]
 
 # Steps for Building the First MVP of MK2 Covalent Inhibitor Prediction Tool
 
@@ -40,7 +14,6 @@ The project is organized as follows:
 * **PyTorch** (lightweight installation) for simple ML model
 
 ### Install AutoDock Vina and configure it in your environment
-
 
 ## Step 2: Protein Preparation
 

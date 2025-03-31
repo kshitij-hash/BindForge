@@ -1,0 +1,667 @@
+{
+  "audit_author": [
+    {
+      "name": "Fujino, A.",
+      "pdbx_ordinal": 1
+    },
+    {
+      "name": "Fukushima, K.",
+      "pdbx_ordinal": 2
+    },
+    {
+      "name": "Kubota, T.",
+      "pdbx_ordinal": 3
+    },
+    {
+      "name": "Matsumoto, Y.",
+      "pdbx_ordinal": 4
+    },
+    {
+      "name": "Takimoto-Kamimura, M.",
+      "pdbx_ordinal": 5
+    }
+  ],
+  "cell": {
+    "angle_alpha": 90.0,
+    "angle_beta": 90.0,
+    "angle_gamma": 90.0,
+    "length_a": 180.061,
+    "length_b": 179.684,
+    "length_c": 254.101,
+    "zpdb": 48
+  },
+  "citation": [
+    {
+      "country": "DK",
+      "id": "primary",
+      "journal_abbrev": "Acta Crystallogr.,Sect.F",
+      "journal_id_issn": "1744-3091",
+      "journal_volume": "69",
+      "page_first": "1344",
+      "page_last": "1348",
+      "pdbx_database_id_doi": "10.1107/S1744309113030534",
+      "pdbx_database_id_pub_med": 24316826,
+      "rcsb_authors": [
+        "Fujino, A.",
+        "Fukushima, K.",
+        "Kubota, T.",
+        "Matsumoto, Y.",
+        "Takimoto-Kamimura, M."
+      ],
+      "rcsb_is_primary": "Y",
+      "rcsb_journal_abbrev": "Acta Crystallogr Sect F Struct Biol Cryst Commun",
+      "title": "Structure of the beta-form of human MK2 in complex with the non-selective kinase inhibitor TEI-L03090",
+      "year": 2013
+    }
+  ],
+  "database2": [
+    {
+      "database_code": "3WI6",
+      "database_id": "PDB",
+      "pdbx_doi": "10.2210/pdb3wi6/pdb",
+      "pdbx_database_accession": "pdb_00003wi6"
+    },
+    {
+      "database_code": "RCSB096365",
+      "database_id": "RCSB"
+    },
+    {
+      "database_code": "D_1000096365",
+      "database_id": "WWPDB"
+    }
+  ],
+  "diffrn": [
+    {
+      "ambient_temp": 100.0,
+      "crystal_id": "1",
+      "id": "1"
+    }
+  ],
+  "diffrn_detector": [
+    {
+      "detector": "CCD",
+      "diffrn_id": "1",
+      "pdbx_collection_date": "2006-09-28T00:00:00+0000",
+      "type": "ADSC QUANTUM 315"
+    }
+  ],
+  "diffrn_radiation": [
+    {
+      "diffrn_id": "1",
+      "pdbx_diffrn_protocol": "SINGLE WAVELENGTH",
+      "pdbx_monochromatic_or_laue_ml": "M",
+      "pdbx_scattering_type": "x-ray",
+      "wavelength_id": "1"
+    }
+  ],
+  "diffrn_source": [
+    {
+      "diffrn_id": "1",
+      "pdbx_synchrotron_beamline": "BL41XU",
+      "pdbx_synchrotron_site": "SPring-8",
+      "pdbx_wavelength_list": "1.000",
+      "source": "SYNCHROTRON",
+      "type": "SPRING-8 BEAMLINE BL41XU"
+    }
+  ],
+  "entry": {
+    "id": "3WI6"
+  },
+  "exptl": [
+    {
+      "crystals_number": 1,
+      "method": "X-RAY DIFFRACTION"
+    }
+  ],
+  "exptl_crystal": [
+    {
+      "density_matthews": 4.56,
+      "density_percent_sol": 73.05,
+      "id": "1"
+    }
+  ],
+  "exptl_crystal_grow": [
+    {
+      "crystal_id": "1",
+      "method": "VAPOR DIFFUSION, HANGING DROP",
+      "p_h": 5.0,
+      "pdbx_details": "0.1M Na-Acetate, 1.6M Ammonium Sulphate, 200mM NaCl, 1.4mM Deoxi Big Chap, pH 5.0, VAPOR DIFFUSION, HANGING DROP, temperature 293.0K",
+      "temp": 293.0
+    }
+  ],
+  "pdbx_audit_revision_category": [
+    {
+      "category": "chem_comp_atom",
+      "data_content_type": "Structure model",
+      "ordinal": 1,
+      "revision_ordinal": 2
+    },
+    {
+      "category": "chem_comp_bond",
+      "data_content_type": "Structure model",
+      "ordinal": 2,
+      "revision_ordinal": 2
+    },
+    {
+      "category": "database_2",
+      "data_content_type": "Structure model",
+      "ordinal": 3,
+      "revision_ordinal": 2
+    },
+    {
+      "category": "pdbx_initial_refinement_model",
+      "data_content_type": "Structure model",
+      "ordinal": 4,
+      "revision_ordinal": 2
+    },
+    {
+      "category": "struct_site",
+      "data_content_type": "Structure model",
+      "ordinal": 5,
+      "revision_ordinal": 2
+    }
+  ],
+  "pdbx_audit_revision_details": [
+    {
+      "data_content_type": "Structure model",
+      "ordinal": 1,
+      "provider": "repository",
+      "revision_ordinal": 1,
+      "type": "Initial release"
+    }
+  ],
+  "pdbx_audit_revision_group": [
+    {
+      "data_content_type": "Structure model",
+      "group": "Data collection",
+      "ordinal": 1,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Database references",
+      "ordinal": 2,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Derived calculations",
+      "ordinal": 3,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "group": "Refinement description",
+      "ordinal": 4,
+      "revision_ordinal": 2
+    }
+  ],
+  "pdbx_audit_revision_history": [
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 0,
+      "ordinal": 1,
+      "revision_date": "2013-12-18T00:00:00+0000"
+    },
+    {
+      "data_content_type": "Structure model",
+      "major_revision": 1,
+      "minor_revision": 1,
+      "ordinal": 2,
+      "revision_date": "2023-11-08T00:00:00+0000"
+    }
+  ],
+  "pdbx_audit_revision_item": [
+    {
+      "data_content_type": "Structure model",
+      "item": "_database_2.pdbx_DOI",
+      "ordinal": 1,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_database_2.pdbx_database_accession",
+      "ordinal": 2,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_asym_id",
+      "ordinal": 3,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_comp_id",
+      "ordinal": 4,
+      "revision_ordinal": 2
+    },
+    {
+      "data_content_type": "Structure model",
+      "item": "_struct_site.pdbx_auth_seq_id",
+      "ordinal": 5,
+      "revision_ordinal": 2
+    }
+  ],
+  "pdbx_database_related": [
+    {
+      "content_type": "unspecified",
+      "db_id": "3a2c",
+      "db_name": "PDB",
+      "details": "The same protein complexed with selective inhibitor."
+    }
+  ],
+  "pdbx_database_status": {
+    "deposit_site": "PDBJ",
+    "pdb_format_compatible": "Y",
+    "process_site": "PDBJ",
+    "recvd_initial_deposition_date": "2013-09-06T00:00:00+0000",
+    "status_code": "REL",
+    "status_code_sf": "REL"
+  },
+  "pdbx_initial_refinement_model": [
+    {
+      "accession_code": "1NY3",
+      "id": 1,
+      "source_name": "PDB",
+      "type": "experimental model"
+    }
+  ],
+  "pdbx_vrpt_summary": {
+    "attempted_validation_steps": "molprobity,validation-pack,xtriage,eds,mogul,buster-report,percentiles,writexml,writecif,writepdf",
+    "ligands_for_buster_report": "Y",
+    "report_creation_date": "2024-06-13T03:16:00+0000"
+  },
+  "pdbx_vrpt_summary_diffraction": [
+    {
+      "dcc_r": 0.23,
+      "eds_r": 0.23,
+      "fo_fc_correlation": 0.924,
+      "padilla_yeates_l2_mean": 0.347,
+      "padilla_yeates_lmean": 0.51,
+      "wilson_baniso": "[87.323,78.196,82.144,0.000,0.000,0.000]",
+      "wilson_bestimate": 82.438,
+      "acentric_outliers": 12,
+      "bulk_solvent_b": 44.969,
+      "bulk_solvent_k": 0.341,
+      "centric_outliers": 0,
+      "data_anisotropy": 0.111,
+      "data_completeness": 98.99,
+      "exp_method": "x-ray",
+      "num_miller_indices": 82788,
+      "number_reflns_rfree": 4136,
+      "percent_rsrzoutliers": 25.0,
+      "percent_free_reflections": 5.0,
+      "trans_ncsdetails": "The largest off-origin peak in the Patterson function is 3.49% of the height of the origin peak. No significant pseudotranslation is detected.",
+      "twin_fraction": "-1/2*h+1/2*k+1/2*l,1/2*h-1/2*k+1/2*l,h+k:0.466;-1/2*h+1/2*k-1/2*l,1/2*h-1/2*k-1/2*l,-h-k:0.467;k,h,-l:0.469;-1/2*h-1/2*k-1/2*l,-1/2*h-1/2*k+1/2*l,-h+k:0.459;-1/2*h-1/2*k+1/2*l,-1/2*h-1/2*k-1/2*l,h-k:0.467",
+      "bfactor_type": "FULL",
+      "dccrfree": 0.27,
+      "edsres_high": 2.99,
+      "edsres_low": 45.02,
+      "iover_sigma": "3.28(3.01A)"
+    }
+  ],
+  "pdbx_vrpt_summary_geometry": [
+    {
+      "angles_rmsz": 0.76,
+      "bonds_rmsz": 0.91,
+      "clashscore": 6.68,
+      "num_hreduce": 13405,
+      "num_angles_rmsz": 18551,
+      "num_bonds_rmsz": 13721,
+      "percent_ramachandran_outliers": 0.24,
+      "percent_rotamer_outliers": 2.94
+    }
+  ],
+  "rcsb_accession_info": {
+    "deposit_date": "2013-09-06T00:00:00+0000",
+    "has_released_experimental_data": "Y",
+    "initial_release_date": "2013-12-18T00:00:00+0000",
+    "major_revision": 1,
+    "minor_revision": 1,
+    "revision_date": "2023-11-08T00:00:00+0000",
+    "status_code": "REL"
+  },
+  "rcsb_entry_container_identifiers": {
+    "assembly_ids": [
+      "1"
+    ],
+    "entity_ids": [
+      "1",
+      "2"
+    ],
+    "entry_id": "3WI6",
+    "model_ids": [
+      1
+    ],
+    "non_polymer_entity_ids": [
+      "2"
+    ],
+    "polymer_entity_ids": [
+      "1"
+    ],
+    "rcsb_id": "3WI6",
+    "pubmed_id": 24316826
+  },
+  "rcsb_entry_info": {
+    "assembly_count": 1,
+    "branched_entity_count": 0,
+    "cis_peptide_count": 6,
+    "deposited_atom_count": 13553,
+    "deposited_deuterated_water_count": 0,
+    "deposited_hydrogen_atom_count": 0,
+    "deposited_model_count": 1,
+    "deposited_modeled_polymer_monomer_count": 1696,
+    "deposited_nonpolymer_entity_instance_count": 6,
+    "deposited_polymer_entity_instance_count": 6,
+    "deposited_polymer_monomer_count": 1944,
+    "deposited_solvent_atom_count": 0,
+    "deposited_unmodeled_polymer_monomer_count": 248,
+    "diffrn_radiation_wavelength_maximum": 1.0,
+    "diffrn_radiation_wavelength_minimum": 1.0,
+    "disulfide_bond_count": 0,
+    "entity_count": 2,
+    "experimental_method": "X-ray",
+    "experimental_method_count": 1,
+    "inter_mol_covalent_bond_count": 0,
+    "inter_mol_metalic_bond_count": 0,
+    "molecular_weight": 226.68,
+    "na_polymer_entity_types": "Other",
+    "nonpolymer_entity_count": 1,
+    "nonpolymer_molecular_weight_maximum": 0.26,
+    "nonpolymer_molecular_weight_minimum": 0.26,
+    "polymer_composition": "homomeric protein",
+    "polymer_entity_count": 1,
+    "polymer_entity_count_dna": 0,
+    "polymer_entity_count_rna": 0,
+    "polymer_entity_count_nucleic_acid": 0,
+    "polymer_entity_count_nucleic_acid_hybrid": 0,
+    "polymer_entity_count_protein": 1,
+    "polymer_entity_taxonomy_count": 1,
+    "polymer_molecular_weight_maximum": 37.52,
+    "polymer_molecular_weight_minimum": 37.52,
+    "polymer_monomer_count_maximum": 324,
+    "polymer_monomer_count_minimum": 324,
+    "resolution_combined": [
+      2.99
+    ],
+    "selected_polymer_entity_types": "Protein (only)",
+    "software_programs_combined": [
+      "HKL-2000",
+      "MOLREP",
+      "REFMAC"
+    ],
+    "solvent_entity_count": 0,
+    "structure_determination_methodology": "experimental",
+    "structure_determination_methodology_priority": 10,
+    "diffrn_resolution_high": {
+      "provenance_source": "Depositor assigned",
+      "value": 2.99
+    }
+  },
+  "rcsb_primary_citation": {
+    "country": "DK",
+    "id": "primary",
+    "journal_abbrev": "Acta Crystallogr.,Sect.F",
+    "journal_id_issn": "1744-3091",
+    "journal_volume": "69",
+    "page_first": "1344",
+    "page_last": "1348",
+    "pdbx_database_id_doi": "10.1107/S1744309113030534",
+    "pdbx_database_id_pub_med": 24316826,
+    "rcsb_orcididentifiers": [
+      "?",
+      "?",
+      "?",
+      "?",
+      "?"
+    ],
+    "rcsb_authors": [
+      "Fujino, A.",
+      "Fukushima, K.",
+      "Kubota, T.",
+      "Matsumoto, Y.",
+      "Takimoto-Kamimura, M."
+    ],
+    "rcsb_journal_abbrev": "Acta Crystallogr Sect F Struct Biol Cryst Commun",
+    "title": "Structure of the beta-form of human MK2 in complex with the non-selective kinase inhibitor TEI-L03090",
+    "year": 2013
+  },
+  "refine": [
+    {
+      "aniso_b11": 1.11,
+      "aniso_b12": 0.0,
+      "aniso_b13": 0.0,
+      "aniso_b22": -1.15,
+      "aniso_b23": 0.0,
+      "aniso_b33": 0.05,
+      "correlation_coeff_fo_to_fc": 0.918,
+      "correlation_coeff_fo_to_fc_free": 0.887,
+      "details": "HYDROGENS HAVE BEEN ADDED IN THE RIDING POSITIONS",
+      "ls_rfactor_rfree": 0.28292,
+      "ls_rfactor_rwork": 0.24026,
+      "ls_rfactor_obs": 0.24241,
+      "ls_dres_high": 2.99,
+      "ls_dres_low": 30.0,
+      "ls_number_reflns_rfree": 4132,
+      "ls_number_reflns_obs": 78593,
+      "ls_percent_reflns_rfree": 5.0,
+      "ls_percent_reflns_obs": 99.3,
+      "overall_sub": 13.826,
+      "overall_suml": 0.265,
+      "pdbx_rfree_selection_details": "RANDOM",
+      "pdbx_diffrn_id": [
+        "1"
+      ],
+      "pdbx_ls_cross_valid_method": "THROUGHOUT",
+      "pdbx_method_to_determine_struct": "MOLECULAR REPLACEMENT",
+      "pdbx_overall_esur": 0.546,
+      "pdbx_overall_esurfree": 0.358,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "pdbx_solvent_ion_probe_radii": 0.8,
+      "pdbx_solvent_shrinkage_radii": 0.8,
+      "pdbx_solvent_vdw_probe_radii": 1.4,
+      "pdbx_starting_model": "1NY3",
+      "pdbx_stereochemistry_target_values": "MAXIMUM LIKELIHOOD",
+      "solvent_model_details": "MASK",
+      "biso_mean": 67.368
+    }
+  ],
+  "refine_hist": [
+    {
+      "cycle_id": "LAST",
+      "d_res_high": 2.99,
+      "d_res_low": 30.0,
+      "number_atoms_solvent": 0,
+      "number_atoms_total": 13553,
+      "pdbx_number_atoms_ligand": 114,
+      "pdbx_number_atoms_nucleic_acid": 0,
+      "pdbx_number_atoms_protein": 13439,
+      "pdbx_refine_id": "X-RAY DIFFRACTION"
+    }
+  ],
+  "refine_ls_restr": [
+    {
+      "dev_ideal": 0.019,
+      "dev_ideal_target": 0.022,
+      "number": 13853,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_bond_refined_d"
+    },
+    {
+      "dev_ideal": 0.006,
+      "dev_ideal_target": 0.02,
+      "number": 9537,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_bond_other_d"
+    },
+    {
+      "dev_ideal": 1.566,
+      "dev_ideal_target": 1.976,
+      "number": 18737,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_angle_refined_deg"
+    },
+    {
+      "dev_ideal": 0.929,
+      "dev_ideal_target": 3.0,
+      "number": 23284,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_angle_other_deg"
+    },
+    {
+      "dev_ideal": 5.424,
+      "dev_ideal_target": 5.0,
+      "number": 1666,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_dihedral_angle_1_deg"
+    },
+    {
+      "dev_ideal": 36.744,
+      "dev_ideal_target": 23.929,
+      "number": 593,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_dihedral_angle_2_deg"
+    },
+    {
+      "dev_ideal": 15.83,
+      "dev_ideal_target": 15.0,
+      "number": 2436,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_dihedral_angle_3_deg"
+    },
+    {
+      "dev_ideal": 18.667,
+      "dev_ideal_target": 15.0,
+      "number": 84,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_dihedral_angle_4_deg"
+    },
+    {
+      "dev_ideal": 0.079,
+      "dev_ideal_target": 0.2,
+      "number": 2091,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_chiral_restr"
+    },
+    {
+      "dev_ideal": 0.006,
+      "dev_ideal_target": 0.021,
+      "number": 14976,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_gen_planes_refined"
+    },
+    {
+      "dev_ideal": 0.001,
+      "dev_ideal_target": 0.02,
+      "number": 2698,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_gen_planes_other"
+    },
+    {
+      "dev_ideal": 1.181,
+      "dev_ideal_target": 1.5,
+      "number": 8460,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_mcbond_it"
+    },
+    {
+      "dev_ideal": 0.154,
+      "dev_ideal_target": 1.5,
+      "number": 3376,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_mcbond_other"
+    },
+    {
+      "dev_ideal": 2.283,
+      "dev_ideal_target": 2.0,
+      "number": 13675,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_mcangle_it"
+    },
+    {
+      "dev_ideal": 2.758,
+      "dev_ideal_target": 3.0,
+      "number": 5393,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_scbond_it"
+    },
+    {
+      "dev_ideal": 4.823,
+      "dev_ideal_target": 4.5,
+      "number": 5062,
+      "pdbx_refine_id": "X-RAY DIFFRACTION",
+      "type": "r_scangle_it"
+    }
+  ],
+  "reflns": [
+    {
+      "d_resolution_high": 2.99,
+      "d_resolution_low": 100.0,
+      "number_obs": 82725,
+      "pdbx_rmerge_iobs": 0.078,
+      "pdbx_diffrn_id": [
+        "1"
+      ],
+      "pdbx_net_iover_sigma_i": 29.5,
+      "pdbx_ordinal": 1,
+      "pdbx_redundancy": 5.0,
+      "percent_possible_obs": 99.7
+    }
+  ],
+  "reflns_shell": [
+    {
+      "rmerge_iobs": 0.434,
+      "d_res_high": 3.0,
+      "d_res_low": 3.11,
+      "mean_iover_sig_iobs": 3.1,
+      "pdbx_diffrn_id": [
+        "1"
+      ],
+      "pdbx_ordinal": 1,
+      "pdbx_redundancy": 5.0,
+      "percent_possible_all": 100.0
+    }
+  ],
+  "software": [
+    {
+      "classification": "data collection",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 1
+    },
+    {
+      "classification": "phasing",
+      "name": "MOLREP",
+      "pdbx_ordinal": 2
+    },
+    {
+      "classification": "refinement",
+      "name": "REFMAC",
+      "pdbx_ordinal": 3,
+      "version": "5.5.0109"
+    },
+    {
+      "classification": "data reduction",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 4
+    },
+    {
+      "classification": "data scaling",
+      "name": "HKL-2000",
+      "pdbx_ordinal": 5
+    }
+  ],
+  "struct": {
+    "title": "Crystal structure of MAPKAP Kinase-2 (MK2) in complex with non-selective inhibitor"
+  },
+  "struct_keywords": {
+    "pdbx_keywords": "Transferase/Transferase inhibitor",
+    "text": "Gly-rich loop formed, ATP-binding, Kinase, Nucleotide-binding, Phosphoprotein, Serine/threonine-protein kinase, Transferase-Transferase inhibitor complex"
+  },
+  "symmetry": {
+    "int_tables_number": 24,
+    "space_group_name_hm": "I 21 21 21"
+  },
+  "rcsb_id": "3WI6"
+}
