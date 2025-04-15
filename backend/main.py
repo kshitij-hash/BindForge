@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 from pydantic import BaseModel
 from utils.compound_extractor import (
     download_mk2_inhibitors_sdf,
@@ -26,6 +27,15 @@ app = FastAPI(
     title="AI-Enhanced Docking Predictions",
     description="API for protein structure cleaning and docking predictions",
     version="1.0.0",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend origin
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Configuration

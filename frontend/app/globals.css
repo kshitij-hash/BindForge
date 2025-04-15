@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 173 80% 40%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 173 80% 96%;
+    --accent-foreground: 173 80% 40%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 173 80% 40%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 173 80% 40%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 173 80% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Molecule Docking Animation */
+.protein-cavity {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  border-radius: 30%;
+  border: 3px dashed rgba(0, 128, 128, 0.3);
+  top: 15%;
+  left: 15%;
+}
+
+.protein-structure {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.protein-node {
+  position: absolute;
+  background-color: rgba(0, 128, 128, 0.4);
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+}
+
+.small-molecule {
+  position: absolute;
+  width: 60px;
+  height: 40px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  animation: moleculeDocking 6s infinite;
+}
+
+.molecule-atom {
+  position: absolute;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.binding-highlight {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 206, 209, 0.6) 0%, rgba(0, 128, 128, 0) 70%);
+  opacity: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: bindingPulse 6s infinite;
+}
+
+.prediction-score {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  opacity: 0;
+  animation: scoreAppear 6s infinite;
+}
+
+@keyframes moleculeDocking {
+  0% { left: 0; transform: translateY(-50%) rotate(0deg); }
+  40% { left: 40%; transform: translateY(-50%) rotate(180deg); }
+  50% { left: 50%; transform: translateY(-50%) rotate(240deg); }
+  55% { left: 50%; transform: translateY(-50%) scale(0.8) rotate(240deg); }
+  65% { left: 50%; transform: translateY(-50%) scale(1) rotate(240deg); }
+  90% { left: 50%; transform: translateY(-50%) rotate(240deg); }
+  100% { left: 0; transform: translateY(-50%) rotate(0deg); }
+}
+
+@keyframes bindingPulse {
+  0%, 30% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  50%, 65% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  80%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+}
+
+@keyframes scoreAppear {
+  0%, 45% { opacity: 0; transform: translateY(10px); }
+  55%, 75% { opacity: 1; transform: translateY(0); }
+  85%, 100% { opacity: 0; transform: translateY(-10px); }
+}
