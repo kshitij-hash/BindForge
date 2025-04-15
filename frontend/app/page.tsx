@@ -26,22 +26,34 @@ export default function Home() {
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link
-              href="#features"
-              className="text-sm font-medium hover:text-teal-600 transition-colors"
+              href="/libraries"
+              className="text-sm text-gray-500 hover:text-teal-600"
             >
-              Features
+              Libraries
             </Link>
             <Link
-              href="#technology"
-              className="text-sm font-medium hover:text-teal-600 transition-colors"
+              href="/molecules"
+              className="text-sm text-gray-500 hover:text-teal-600"
             >
-              Technology
+              Molecules
             </Link>
             <Link
-              href="#contact"
-              className="text-sm font-medium hover:text-teal-600 transition-colors"
+              href="/protein"
+              className="text-sm text-gray-500 hover:text-teal-600"
             >
-              Contact
+              Protein
+            </Link>
+            <Link
+              href="/search"
+              className="text-sm text-gray-500 hover:text-teal-600"
+            >
+              Search
+            </Link>
+            <Link
+              href="/test-set"
+              className="text-sm text-gray-500 hover:text-teal-600"
+            >
+              Test Set
             </Link>
           </nav>
           <Button variant="outline" className="hidden md:flex">
@@ -242,24 +254,36 @@ export default function Home() {
               <Flask className="h-5 w-5 text-teal-600" />
               <span className="font-bold">BindForge</span>
             </div>
-            <div className="flex gap-6 mt-4 md:mt-0">
+            <div className="flex flex-wrap gap-6 mt-4 md:mt-0">
               <Link
-                href="#"
+                href="/libraries"
                 className="text-sm text-gray-500 hover:text-teal-600"
               >
-                Privacy
+                Libraries
               </Link>
               <Link
-                href="#"
+                href="/molecules"
                 className="text-sm text-gray-500 hover:text-teal-600"
               >
-                Terms
+                Molecules
               </Link>
               <Link
-                href="#"
+                href="/protein"
                 className="text-sm text-gray-500 hover:text-teal-600"
               >
-                Contact
+                Protein
+              </Link>
+              <Link
+                href="/search"
+                className="text-sm text-gray-500 hover:text-teal-600"
+              >
+                Search
+              </Link>
+              <Link
+                href="/test-set"
+                className="text-sm text-gray-500 hover:text-teal-600"
+              >
+                Test Set
               </Link>
             </div>
             <p className="text-sm text-gray-500 mt-4 md:mt-0">
