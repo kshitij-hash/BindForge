@@ -101,6 +101,12 @@ export default function Home() {
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                <Button className="bg-teal-600 hover:bg-teal-700" asChild>
+                  <Link href="/workflow">
+                    Start Docking Workflow
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
                 <Button variant="outline">Contact Us</Button>
               </div>
             </div>

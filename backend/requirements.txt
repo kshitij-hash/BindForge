@@ -30,3 +30,5 @@ python-multipart>=0.0.5  # For handling file uploads
 tqdm>=4.62.0
 scikit-learn>=0.24.0
 pydantic>=1.8.0
+
+reportlab>=4.4.0
