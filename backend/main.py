@@ -30,6 +30,10 @@ from controllers.docking_controller import DockingController
 import tempfile
 import os
 
+# some soalana and ipfs imports
+from utils.cid_store import store_cid_on_solana
+from ipfs.pinata_post import upload_to_pinata
+
 # Create FastAPI app
 app = FastAPI(
     title="AI-Enhanced Docking Predictions",
@@ -695,7 +699,24 @@ async def generate_report_route(request: Request):
             molecule_info, 
             reports_dir
         )
-        
+
+        print(f"Report generated at: {report_path}")
+
+        # JWT token for pinata 
+        PINATA_JWT_TOKEN = os.getenv("JWT")
+
+        # Here we will upload the report to IPFS
+        cid = upload_to_pinata(report_path, PINATA_JWT_TOKEN)
+
+        if not cid: 
+            raise HTTPException(status_code=500, detail="Failed to upload report to IPFS")
+
+        # Store CID in CID store
+        hash = store_cid_on_solana(cid)
+
+        print(f"This is the hash {hash}")
+
+
         # Generate URL for downloading the report
         report_rel_path = os.path.relpath(report_path, start=UPLOAD_FOLDER)
         report_url = f"/uploads/{report_rel_path}"
@@ -703,7 +724,8 @@ async def generate_report_route(request: Request):
         return {
             "success": True,
             "report_url": report_url,
-            "filename": os.path.basename(report_path)
+            "filename": os.path.basename(report_path),
+            "hash": hash
         }
         
     except Exception as e:
