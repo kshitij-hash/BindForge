@@ -1,0 +1,32 @@
+MODEL 5
+REMARK VINA RESULT:     0.000      2.524      2.835
+REMARK INTER + INTRA:           0.000
+REMARK INTER:                   0.000
+REMARK INTRA:                   0.000
+REMARK UNBOUND:                 0.000
+REMARK  Name = /tmp/bindforge_docking_fd9917f5-bd65-4c9b-a272-07d7bd292952/ligand_e22d252b.pdb
+REMARK  3 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK    1  A    between atoms: C1_1  and  C2_2
+REMARK    2  A    between atoms: C1_1  and  N1_5
+REMARK    3  A    between atoms: C2_2  and  O2_4
+REMARK                            x       y       z     vdW  Elec       q    Type
+REMARK                         _______ _______ _______ _____ _____    ______ ____
+ROOT
+ATOM      1  C1  UNL     1      -9.362   6.731  -2.103  0.00  0.00    +0.199 C 
+ENDROOT
+BRANCH   1   2
+ATOM      2  N1  UNL     1      -9.885   8.013  -2.611  0.00  0.00    -0.321 NA
+ATOM      3  H4  UNL     1     -10.882   7.894  -2.806  0.00  0.00    +0.119 HD
+ATOM      4  H5  UNL     1      -9.473   8.180  -3.533  0.00  0.00    +0.119 HD
+ENDBRANCH   1   2
+BRANCH   1   5
+ATOM      5  C2  UNL     1      -7.917   6.519  -2.531  0.00  0.00    +0.319 C 
+ATOM      6  O1  UNL     1      -7.105   7.387  -2.813  0.00  0.00    -0.250 OA
+BRANCH   5   7
+ATOM      7  O2  UNL     1      -7.576   5.217  -2.580  0.00  0.00    -0.480 OA
+ATOM      8  H3  UNL     1      -8.302   4.798  -3.090  0.00  0.00    +0.295 HD
+ENDBRANCH   5   7
+ENDBRANCH   1   5
+TORSDOF 3
+ENDMDL

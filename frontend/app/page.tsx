@@ -288,29 +288,28 @@ export default function Home() {
                 Technology
               </div>
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">
-                Powered by the Eliza Framework
+                Blockchain-Powered Data Storage
               </h2>
               <p className="max-w-[600px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed mt-4">
-                Our solution leverages the Eliza framework's capabilities on
-                Solana to ensure scalability and efficiency in computational
-                drug discovery.
+                Our platform stores all docking reports and analysis results on the Solana blockchain, 
+                ensuring transparency, immutability, and security for your research data.
               </p>
               <ul className="space-y-2 mt-6">
                 <li className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-teal-500"></div>
-                  <span>High-throughput molecular simulations</span>
+                  <span>Immutable record of all molecular simulations</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-teal-500"></div>
-                  <span>Secure data handling for proprietary compounds</span>
+                  <span>Secure, verifiable research data with cryptographic proof</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-teal-500"></div>
-                  <span>Accelerated research and development workflows</span>
+                  <span>Decentralized access to your research findings</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-teal-500"></div>
-                  <span>Step-by-step guided workflow for researchers</span>
+                  <span>Permanent storage that's tamper-proof and transparent</span>
                 </li>
               </ul>
               <div className="flex gap-4 mt-6">
