@@ -57,7 +57,7 @@ export default function Home() {
             </Link>
           </nav>
           <Button variant="outline" className="hidden md:flex">
-            Try Now
+            <Link href="/workflow">Try Now</Link>
           </Button>
           <Button variant="outline" size="icon" className="md:hidden">
             <span className="sr-only">Toggle menu</span>
@@ -97,10 +97,6 @@ export default function Home() {
                 prediction of small molecule inhibitors to target proteins.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mt-6 justify-center">
-                <Button className="bg-teal-600 hover:bg-teal-700">
-                  Get Started
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
                 <Button className="bg-teal-600 hover:bg-teal-700" asChild>
                   <Link href="/workflow">
                     Start Docking Workflow

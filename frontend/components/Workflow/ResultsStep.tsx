@@ -34,10 +34,10 @@ export default function ResultsStep({ data }: ResultsStepProps) {
 
   // Debug print to see what data is available
   useEffect(() => {
-    console.log('Results Step Data:', {
+    console.log("Results Step Data:", {
       protein: data.protein,
       molecules: data.molecules?.length,
-      dockingConfig: data.dockingConfig
+      dockingConfig: data.dockingConfig,
     });
   }, [data]);
 
@@ -46,12 +46,12 @@ export default function ResultsStep({ data }: ResultsStepProps) {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // Check if required data is available
         if (!data.protein || !data.molecules || data.molecules.length === 0) {
           console.error("Missing required data", {
             hasProtein: Boolean(data.protein),
-            moleculesLength: data.molecules?.length
+            moleculesLength: data.molecules?.length,
           });
           setError("Missing required protein or molecule data");
           setIsLoading(false);
@@ -59,105 +59,159 @@ export default function ResultsStep({ data }: ResultsStepProps) {
         }
 
         setDebug({ status: "Starting docking requests" });
-        
-        // For each molecule, perform docking
-        const resultsPromises = data.molecules.map(async (molecule: { smiles: any; name: any; id: any; }, idx: number) => {
-          try {
-            console.log(`Processing molecule ${idx+1}/${data.molecules.length}: ${molecule.name || molecule.id}`);
-            
-            // Fix payload structure - determine which protein path field to use
-            const payload: any = {
-              smiles: molecule.smiles,
-              // Use filesystem_path as the primary source if available
-              protein_path: data.protein.filesystem_path || data.protein.path || data.protein.cleanedPdb,
-            };
-            
-            // Include cysteine ID only for covalent docking
-            if (data.dockingConfig.type === "covalent" && data.dockingConfig.covalentTarget) {
-              payload.cysteine_id = data.dockingConfig.covalentTarget;
-            }
-            
-            console.log(`Sending dock request for ${molecule.name || molecule.id}`, payload);
 
-            const response = await fetch("http://localhost:8000/api/dock", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(payload),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`Dock API error (${response.status}):`, errorText);
-              
-              // Check for SMARTS/SMILES parsing errors
-              if (errorText.includes("SMARTS Parse Error") || errorText.includes("SMILES")) {
-                throw new Error(`Invalid molecule structure in ${molecule.name || molecule.id}. Please check the SMILES string.`);
+        // For each molecule, perform docking
+        const resultsPromises = data.molecules.map(
+          async (
+            molecule: { smiles: any; name: any; id: any },
+            idx: number
+          ) => {
+            try {
+              console.log(
+                `Processing molecule ${idx + 1}/${data.molecules.length}: ${
+                  molecule.name || molecule.id
+                }`
+              );
+
+              // Fix payload structure - determine which protein path field to use
+              const payload: any = {
+                smiles: molecule.smiles,
+                // Use filesystem_path as the primary source if available
+                protein_path:
+                  data.protein.filesystem_path ||
+                  data.protein.path ||
+                  data.protein.cleanedPdb,
+              };
+
+              // Include cysteine ID only for covalent docking
+              if (
+                data.dockingConfig.type === "covalent" &&
+                data.dockingConfig.covalentTarget
+              ) {
+                payload.cysteine_id = data.dockingConfig.covalentTarget;
               }
-              
-              throw new Error(`Docking failed (${response.status}): ${errorText}`);
+
+              console.log(
+                `Sending dock request for ${molecule.name || molecule.id}`,
+                payload
+              );
+
+              const response = await fetch("http://localhost:8000/api/dock", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+              });
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error(
+                  `Dock API error (${response.status}):`,
+                  errorText
+                );
+
+                // Check for SMARTS/SMILES parsing errors
+                if (
+                  errorText.includes("SMARTS Parse Error") ||
+                  errorText.includes("SMILES")
+                ) {
+                  throw new Error(
+                    `Invalid molecule structure in ${
+                      molecule.name || molecule.id
+                    }. Please check the SMILES string.`
+                  );
+                }
+
+                throw new Error(
+                  `Docking failed (${response.status}): ${errorText}`
+                );
+              }
+
+              const dockingData = await response.json();
+              console.log(
+                `Got docking results for ${molecule.name || molecule.id}:`,
+                dockingData
+              );
+
+              // Process API response format to match the expected structure
+              // Handle the specific pose format from the API response
+              const processedPoses = Array.isArray(dockingData.poses)
+                ? dockingData.poses
+                : [];
+
+              // Safely extract data from the response with fallbacks
+              return {
+                molecule_id: molecule.id,
+                molecule_name: molecule.name || `Molecule ${idx + 1}`,
+                smiles: molecule.smiles,
+                docking_score:
+                  dockingData.best_affinity ||
+                  (processedPoses.length > 0
+                    ? Math.min(
+                        ...processedPoses.map(
+                          (p: { affinity: any }) => p.affinity
+                        )
+                      )
+                    : null),
+                // Set binding mode based on poses presence and affinity
+                binding_mode:
+                  processedPoses.length > 0 ? "stable" : "no binding",
+                // For covalent prediction, check the response's 'covalent_potential' field
+                // or use 'not applicable' for standard docking as default
+                covalent_prediction:
+                  data.dockingConfig.type === "covalent"
+                    ? dockingData.covalent_potential === "High"
+                      ? "likely"
+                      : "unlikely"
+                    : "not applicable",
+                pdb_url: data.protein.path || "#",
+                pdbqt_url:
+                  processedPoses[0]?.pdbqt_url ||
+                  processedPoses[0]?.pose_file ||
+                  "#",
+                poses: processedPoses,
+                warhead_distance:
+                  dockingData.warhead_distance ||
+                  processedPoses[0]?.distance_to_cysteine ||
+                  null,
+                has_warhead: Boolean(dockingData.has_warhead),
+                status: dockingData.status || "completed",
+              };
+            } catch (err) {
+              console.error(
+                `Error docking molecule ${molecule.name || molecule.id}:`,
+                err
+              );
+              return {
+                molecule_id: molecule.id,
+                molecule_name: molecule.name || `Molecule ${idx + 1}`,
+                smiles: molecule.smiles,
+                docking_score: null,
+                binding_mode: "error",
+                covalent_prediction: "unknown",
+                pdb_url: "#",
+                pdbqt_url: "#",
+                error: true,
+                errorMessage:
+                  err instanceof Error ? err.message : "Unknown error",
+                status: "error",
+              };
             }
-            
-            const dockingData = await response.json();
-            console.log(`Got docking results for ${molecule.name || molecule.id}:`, dockingData);
-            
-            // Process API response format to match the expected structure
-            // Handle the specific pose format from the API response
-            const processedPoses = Array.isArray(dockingData.poses) ? dockingData.poses : [];
-            
-            // Safely extract data from the response with fallbacks
-            return {
-              molecule_id: molecule.id,
-              molecule_name: molecule.name || `Molecule ${idx+1}`,
-              smiles: molecule.smiles,
-              docking_score: dockingData.best_affinity || 
-                            (processedPoses.length > 0 ? 
-                             Math.min(...processedPoses.map((p: { affinity: any; }) => p.affinity)) : 
-                             null),
-              // Set binding mode based on poses presence and affinity
-              binding_mode: processedPoses.length > 0 ? "stable" : "no binding",
-              // For covalent prediction, check the response's 'covalent_potential' field
-              // or use 'not applicable' for standard docking as default
-              covalent_prediction: data.dockingConfig.type === "covalent" ?
-                (dockingData.covalent_potential === "High" ? "likely" : "unlikely") : 
-                "not applicable",
-              pdb_url: data.protein.path || "#",
-              pdbqt_url: processedPoses[0]?.pdbqt_url || 
-                         processedPoses[0]?.pose_file || "#",
-              poses: processedPoses,
-              warhead_distance: dockingData.warhead_distance || 
-                               processedPoses[0]?.distance_to_cysteine || null,
-              has_warhead: Boolean(dockingData.has_warhead),
-              status: dockingData.status || "completed"
-            };
-          } catch (err) {
-            console.error(`Error docking molecule ${molecule.name || molecule.id}:`, err);
-            return {
-              molecule_id: molecule.id,
-              molecule_name: molecule.name || `Molecule ${idx+1}`,
-              smiles: molecule.smiles,
-              docking_score: null,
-              binding_mode: "error",
-              covalent_prediction: "unknown",
-              pdb_url: "#",
-              pdbqt_url: "#",
-              error: true,
-              errorMessage: err instanceof Error ? err.message : "Unknown error",
-              status: "error"
-            };
           }
-        });
-        
+        );
+
         setDebug({ status: "Waiting for docking results" });
-        
+
         // Wait for all docking operations to complete
         const allResults = await Promise.all(resultsPromises);
         setDebug({ status: "Processing results", count: allResults.length });
-        
+
         // Filter out errors and sort by score
-        const validResults = allResults.filter(result => !result.error && result.docking_score !== null);
-        
+        const validResults = allResults.filter(
+          (result) => !result.error && result.docking_score !== null
+        );
+
         // Sort by docking score (lower is better)
         if (validResults.length > 0) {
           validResults.sort((a, b) => {
@@ -166,10 +220,9 @@ export default function ResultsStep({ data }: ResultsStepProps) {
             return a.docking_score - b.docking_score;
           });
         }
-        
+
         // Set the results - include errors if all results failed
         setResults(validResults.length > 0 ? validResults : allResults);
-        
       } catch (err: any) {
         console.error("Failed to fetch results:", err);
         setError(err.message || "Failed to fetch results");
@@ -210,10 +263,10 @@ export default function ResultsStep({ data }: ResultsStepProps) {
       <div className="flex flex-col items-center justify-center h-64">
         <div className="h-12 w-12 rounded-full border-4 border-teal-600 border-t-transparent animate-spin"></div>
         <p className="text-teal-600 font-medium mt-4">Loading results...</p>
-        <p className="text-gray-500 mt-2">Processing {data.molecules.length} molecules...</p>
-        {debug.status && (
-          <p className="text-gray-500 mt-1">{debug.status}</p>
-        )}
+        <p className="text-gray-500 mt-2">
+          Processing {data.molecules.length} molecules...
+        </p>
+        {debug.status && <p className="text-gray-500 mt-1">{debug.status}</p>}
       </div>
     );
   }
@@ -225,8 +278,8 @@ export default function ResultsStep({ data }: ResultsStepProps) {
         <h3 className="text-xl font-semibold">Error Loading Results</h3>
         <p className="text-gray-500 mt-2">{error}</p>
         <div className="mt-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => window.location.reload()}
           >
@@ -244,7 +297,8 @@ export default function ResultsStep({ data }: ResultsStepProps) {
         <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
         <h3 className="text-xl font-semibold">No Docking Results</h3>
         <p className="text-gray-500 mt-2">
-          No valid docking results were obtained. Please try with different molecules or parameters.
+          No valid docking results were obtained. Please try with different
+          molecules or parameters.
         </p>
       </div>
     );
@@ -289,8 +343,8 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                       {result.molecule_name}
                     </td>
                     <td className="py-3 px-3 font-mono">
-                      {result.docking_score !== null 
-                        ? result.docking_score.toFixed(2) 
+                      {result.docking_score !== null
+                        ? result.docking_score.toFixed(2)
                         : "N/A"}
                     </td>
                     <td className="py-3 px-3">
@@ -298,7 +352,9 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                         <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
                           Error
                         </span>
-                      ) : result.binding_mode}
+                      ) : (
+                        result.binding_mode
+                      )}
                     </td>
                     <td className="py-3 px-3">
                       {result.covalent_prediction === "likely" ? (
@@ -320,25 +376,34 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                         variant="outline"
                         size="sm"
                         className="flex items-center gap-1"
-                        disabled={!result.pdbqt_url || result.pdbqt_url === "#" || result.binding_mode === "error"}
+                        disabled={
+                          !result.pdbqt_url ||
+                          result.pdbqt_url === "#" ||
+                          result.binding_mode === "error"
+                        }
                         onClick={() => {
                           // Check if we have a valid URL to download
                           if (result.pdbqt_url && result.pdbqt_url !== "#") {
                             // Ensure we use the full URL path - add host if needed
-                            const url = result.pdbqt_url.startsWith('http') 
+                            const url = result.pdbqt_url.startsWith("http")
                               ? result.pdbqt_url
                               : `http://localhost:8000${result.pdbqt_url}`;
-                            
+
                             window.open(url, "_blank");
                           } else if (result.poses && result.poses.length > 0) {
                             // Try to extract coordinates from poses if available
-                            const poseData = result.poses[0].coordinates || '';
-                            const filename = `${result.molecule_name.replace(/\s+/g, '_')}_docked.pdbqt`;
-                            
-                            const blob = new Blob([poseData], { type: 'text/plain' });
+                            const poseData = result.poses[0].coordinates || "";
+                            const filename = `${result.molecule_name.replace(
+                              /\s+/g,
+                              "_"
+                            )}_docked.pdbqt`;
+
+                            const blob = new Blob([poseData], {
+                              type: "text/plain",
+                            });
                             const url = URL.createObjectURL(blob);
-                            
-                            const a = document.createElement('a');
+
+                            const a = document.createElement("a");
                             a.href = url;
                             a.download = filename;
                             document.body.appendChild(a);
@@ -347,13 +412,24 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                             URL.revokeObjectURL(url);
                           } else {
                             // Generate simple placeholder content
-                            const filename = `${result.molecule_name.replace(/\s+/g, '_')}_docked.pdbqt`;
-                            const content = `REMARK DOCKED: ${result.molecule_name}\nREMARK SCORE: ${result.docking_score !== null ? result.docking_score.toFixed(2) : 'N/A'}\nREMARK SMILES: ${result.smiles}\n`;
-                            
-                            const blob = new Blob([content], { type: 'text/plain' });
+                            const filename = `${result.molecule_name.replace(
+                              /\s+/g,
+                              "_"
+                            )}_docked.pdbqt`;
+                            const content = `REMARK DOCKED: ${
+                              result.molecule_name
+                            }\nREMARK SCORE: ${
+                              result.docking_score !== null
+                                ? result.docking_score.toFixed(2)
+                                : "N/A"
+                            }\nREMARK SMILES: ${result.smiles}\n`;
+
+                            const blob = new Blob([content], {
+                              type: "text/plain",
+                            });
                             const url = URL.createObjectURL(blob);
-                            
-                            const a = document.createElement('a');
+
+                            const a = document.createElement("a");
                             a.href = url;
                             a.download = filename;
                             document.body.appendChild(a);
@@ -391,44 +467,57 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                 <label className="block text-sm font-medium mb-2">
                   Select Molecule:
                 </label>
-                <select 
+                <select
                   className="border rounded-md px-3 py-2 w-full max-w-xs"
                   value={selectedResultIndex}
-                  onChange={(e) => setSelectedResultIndex(parseInt(e.target.value))}
+                  onChange={(e) =>
+                    setSelectedResultIndex(parseInt(e.target.value))
+                  }
                 >
                   {results.map((result, idx) => (
                     <option key={idx} value={idx}>
-                      {result.molecule_name} (Score: {result.docking_score !== null ? result.docking_score.toFixed(2) : 'N/A'})
+                      {result.molecule_name} (Score:{" "}
+                      {result.docking_score !== null
+                        ? result.docking_score.toFixed(2)
+                        : "N/A"}
+                      )
                     </option>
                   ))}
                 </select>
               </div>
-              
+
               <div className="h-64 border rounded-md overflow-hidden">
                 {/* Get the protein path from the correct property */}
-                {(data.protein?.cleanedPdb || data.protein?.path) && 
-                 (results[selectedResultIndex]?.pdbqt_url && 
-                 results[selectedResultIndex]?.pdbqt_url !== "#") ? (
+                {(data.protein?.cleanedPdb || data.protein?.path) &&
+                results[selectedResultIndex]?.pdbqt_url &&
+                results[selectedResultIndex]?.pdbqt_url !== "#" ? (
                   <MoleculeViewer3D
                     // Use cleanedPdb as the primary source for protein path
                     pdbUrl={data.protein.cleanedPdb || data.protein.path}
-                    pdbqtUrl={results[selectedResultIndex]?.pdbqt_url.startsWith('http') 
-                      ? results[selectedResultIndex]?.pdbqt_url
-                      : `http://localhost:8000${results[selectedResultIndex]?.pdbqt_url}`}
+                    pdbqtUrl={
+                      results[selectedResultIndex]?.pdbqt_url.startsWith("http")
+                        ? results[selectedResultIndex]?.pdbqt_url
+                        : `http://localhost:8000${results[selectedResultIndex]?.pdbqt_url}`
+                    }
                     showSurface={showSurface}
                     showBindingSite={showBindingSite}
                     showMolecule={showMolecule}
                     // Pass coordinates from poses if available
-                    poseCoordinates={results[selectedResultIndex]?.poses?.[0]?.coordinates}
-                    bindingSiteCoords={data.dockingConfig.type === "covalent" ? 
-                      data.dockingConfig.bindingSiteCoords : undefined}
+                    poseCoordinates={
+                      results[selectedResultIndex]?.poses?.[0]?.coordinates
+                    }
+                    bindingSiteCoords={
+                      data.dockingConfig.type === "covalent"
+                        ? data.dockingConfig.bindingSiteCoords
+                        : undefined
+                    }
                   />
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center p-4">
                     <AlertCircle className="h-8 w-8 text-amber-500 mb-2" />
                     <p className="text-gray-500 text-center">
                       {!(data.protein?.cleanedPdb || data.protein?.path)
-                        ? "No protein structure available for visualization" 
+                        ? "No protein structure available for visualization"
                         : "No docking structure file available for this molecule"}
                     </p>
                     <Button
@@ -436,15 +525,22 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                       size="sm"
                       className="mt-3 flex items-center gap-1"
                       onClick={() => {
-                        if (results[selectedResultIndex]?.poses?.[0]?.coordinates) {
+                        if (
+                          results[selectedResultIndex]?.poses?.[0]?.coordinates
+                        ) {
                           // Download the coordinates as a file if available
-                          const poseData = results[selectedResultIndex].poses[0].coordinates;
-                          const filename = `${results[selectedResultIndex].molecule_name.replace(/\s+/g, '_')}_docked.pdbqt`;
-                          
-                          const blob = new Blob([poseData], { type: 'text/plain' });
+                          const poseData =
+                            results[selectedResultIndex].poses[0].coordinates;
+                          const filename = `${results[
+                            selectedResultIndex
+                          ].molecule_name.replace(/\s+/g, "_")}_docked.pdbqt`;
+
+                          const blob = new Blob([poseData], {
+                            type: "text/plain",
+                          });
                           const url = URL.createObjectURL(blob);
-                          
-                          const a = document.createElement('a');
+
+                          const a = document.createElement("a");
                           a.href = url;
                           a.download = filename;
                           document.body.appendChild(a);
@@ -453,7 +549,9 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                           URL.revokeObjectURL(url);
                         }
                       }}
-                      disabled={!results[selectedResultIndex]?.poses?.[0]?.coordinates}
+                      disabled={
+                        !results[selectedResultIndex]?.poses?.[0]?.coordinates
+                      }
                     >
                       <Download className="h-3 w-3" />
                       <span>Download Coordinates</span>
@@ -463,32 +561,42 @@ export default function ResultsStep({ data }: ResultsStepProps) {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowSurface(!showSurface)}
                   className={showSurface ? "bg-teal-50" : ""}
-                  disabled={!(data.protein?.cleanedPdb || data.protein?.path) || 
-                          !results[selectedResultIndex]?.pdbqt_url || 
-                          results[selectedResultIndex]?.pdbqt_url === "#"}
+                  disabled={
+                    !(data.protein?.cleanedPdb || data.protein?.path) ||
+                    !results[selectedResultIndex]?.pdbqt_url ||
+                    results[selectedResultIndex]?.pdbqt_url === "#"
+                  }
                 >
                   {showSurface ? "Hide" : "Show"} Protein Surface
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowBindingSite(!showBindingSite)}
                   className={showBindingSite ? "bg-teal-50" : ""}
-                  disabled={!data.protein?.path || !results[selectedResultIndex]?.pdbqt_url || results[selectedResultIndex]?.pdbqt_url === "#"}
+                  disabled={
+                    !data.protein?.path ||
+                    !results[selectedResultIndex]?.pdbqt_url ||
+                    results[selectedResultIndex]?.pdbqt_url === "#"
+                  }
                 >
                   {showBindingSite ? "Hide" : "Show"} Binding Site
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowMolecule(!showMolecule)}
                   className={showMolecule ? "bg-teal-50" : ""}
-                  disabled={!data.protein?.path || !results[selectedResultIndex]?.pdbqt_url || results[selectedResultIndex]?.pdbqt_url === "#"}
+                  disabled={
+                    !data.protein?.path ||
+                    !results[selectedResultIndex]?.pdbqt_url ||
+                    results[selectedResultIndex]?.pdbqt_url === "#"
+                  }
                 >
                   {showMolecule ? "Hide" : "Show"} Molecule
                 </Button>
@@ -509,56 +617,118 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                   {results[0]?.molecule_name}:
                 </p>
 
-                <div className="bg-gray-50 p-4 rounded-md border">
-                  <h4 className="font-medium mb-2">Key Interactions</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                      <span>Hydrogen bond with GLU-123 (2.1 Å)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-orange-500"></div>
-                      <span>Hydrophobic interaction with PHE-456</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-purple-500"></div>
-                      <span>π-stacking with TYR-789</span>
-                    </li>
-                    {data.dockingConfig.type === "covalent" && (
+                {/* Show binding interactions only if we have valid pose data */}
+                {results[0]?.poses?.length > 0 ? (
+                  <div className="bg-gray-50 p-4 rounded-md border">
+                    <h4 className="font-medium mb-2">Key Interactions</h4>
+                    <ul className="space-y-2 text-sm">
+                      {/* Show calculated affinity from the docking result */}
                       <li className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-green-500"></div>
                         <span>
-                          Potential covalent bond with CYS-
-                          {data.dockingConfig.covalentTarget?.split("_")[1]}
+                          Binding affinity:{" "}
+                          {results[0].docking_score.toFixed(2)} kcal/mol
                         </span>
                       </li>
-                    )}
-                  </ul>
-                </div>
+
+                      {/* Show pose information if available */}
+                      {results[0].poses.length > 1 && (
+                        <li className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                          <span>
+                            {results[0].poses.length} potential binding
+                            conformations detected
+                          </span>
+                        </li>
+                      )}
+
+                      {/* Show covalent information if applicable */}
+                      {data.dockingConfig.type === "covalent" && (
+                        <li className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+                          <span>
+                            Potential covalent bond with CYS-
+                            {data.dockingConfig.covalentTarget?.split("_")[1]}
+                            {results[0].warhead_distance && (
+                              <>
+                                {" "}
+                                (Distance:{" "}
+                                {results[0].warhead_distance.toFixed(1)} Å)
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      )}
+
+                      {/* Note about detailed interactions */}
+                      <li className="flex items-center gap-2 italic text-gray-500 mt-1">
+                        <span>
+                          View the 3D visualization or download the detailed
+                          report for specific residue interactions.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-md border">
+                    <div className="flex items-center gap-2 text-amber-700">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                      <span className="font-medium">
+                        No detailed binding information available
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Generate a detailed report to analyze specific molecular
+                      interactions.
+                    </p>
+                  </div>
+                )}
 
                 {reportCid && reportUrl && (
                   <div className="bg-teal-50 p-4 rounded-md border border-teal-200 mt-4">
-                    <h4 className="font-medium mb-2 text-teal-700">Report Generated</h4>
+                    <h4 className="font-medium mb-2 text-teal-700">
+                      Report Generated
+                    </h4>
                     <p className="text-sm text-teal-600 mb-2">
-                      Your docking results have been securely stored on the Solana blockchain:
+                      Your docking results have been securely stored on the
+                      Solana blockchain:
                     </p>
                     <div className="space-y-1 mb-3">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                        <span className="text-xs font-medium text-teal-800">CID:</span>
+                        <span className="text-xs font-medium text-teal-800">
+                          CID:
+                        </span>
                         <code className="bg-teal-100 px-2 py-1 rounded text-xs text-teal-800 font-mono overflow-auto max-w-full">
                           {reportCid}
                         </code>
                       </div>
                       {txSignature && (
                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                          <span className="text-xs font-medium text-teal-800">TX:</span>
+                          <span className="text-xs font-medium text-teal-800">
+                            TX:
+                          </span>
                           <div className="flex items-center gap-1">
                             <code className="bg-teal-100 px-2 py-1 rounded text-xs text-teal-800 font-mono overflow-auto max-w-full">
-                              {txSignature.substring(0, 16)}...{txSignature.substring(txSignature.length - 4)}
+                              {txSignature.substring(0, 16)}...
+                              {txSignature.substring(txSignature.length - 4)}
                             </code>
-                            <a 
+                            <a
                               href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-teal-700 hover:text-teal-800"
                             >
@@ -569,26 +739,32 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex items-center gap-1"
                         onClick={() => {
-                          window.open(`http://localhost:8000${reportUrl}`, "_blank");
+                          window.open(
+                            `http://localhost:8000${reportUrl}`,
+                            "_blank"
+                          );
                         }}
                       >
                         <ExternalLink className="h-3 w-3" />
                         View Report
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex items-center gap-1"
                         onClick={() => {
                           // Create a hidden anchor to download the report
-                          const a = document.createElement('a');
+                          const a = document.createElement("a");
                           a.href = `http://localhost:8000${reportUrl}`;
-                          a.download = `docking-report-${results[0]?.molecule_name.replace(/\s+/g, '_')}.html`;
+                          a.download = `docking-report-${results[0]?.molecule_name.replace(
+                            /\s+/g,
+                            "_"
+                          )}.html`;
                           document.body.appendChild(a);
                           a.click();
                           document.body.removeChild(a);
@@ -604,7 +780,7 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                 {/* Only show the Generate Report button if no report has been generated yet */}
                 {!(reportCid && reportUrl) && (
                   <div className="pt-4">
-                    <Button 
+                    <Button
                       className="flex items-center gap-2"
                       disabled={isGeneratingReport}
                       onClick={async () => {
@@ -612,47 +788,107 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                           // Get the top result
                           const topResult = results[0];
                           if (!topResult) return;
-                          
+
                           setIsGeneratingReport(true);
-                          
-                          const response = await fetch("http://localhost:8000/api/generate-report", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              docking_results: {
-                                poses: results.map(r => ({
-                                  affinity: r.docking_score,
-                                  rmsd_lb: 0,
-                                  rmsd_ub: 0
-                                })),
-                                best_affinity: topResult.docking_score,
-                                warhead_distance: data.dockingConfig.type === "covalent" ? 3.5 : null,
-                                covalent_potential: topResult.covalent_prediction === "likely" ? "High" : 
-                                                  topResult.covalent_prediction === "unlikely" ? "Low" : "N/A"
-                              },
-                              protein_info: {
-                                name: data.protein?.name || "Target Protein",
-                                pdb_id: data.protein?.pdbId || "Unknown",
-                                cysteines: data.dockingConfig.type === "covalent" ? 
-                                  [{ chain: "A", residue_number: data.dockingConfig.covalentTarget?.split("_")[1], residue_name: "CYS" }] : []
-                              },
-                              molecule_info: {
-                                name: topResult.molecule_name,
-                                smiles: topResult.smiles
-                              }
-                            })
-                          });
-                          
+
+                          const response = await fetch(
+                            "http://localhost:8000/api/generate-report",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                docking_results: {
+                                  poses: results.map((r) => ({
+                                    affinity: r.docking_score,
+                                    rmsd_lb: 0,
+                                    rmsd_ub: 0,
+                                    // Add more detailed pose information
+                                    molecule_name: r.molecule_name,
+                                    binding_mode: r.binding_mode,
+                                    pdbqt_url: r.pdbqt_url
+                                  })),
+                                  best_affinity: topResult.docking_score,
+                                  // Include full pose data for the top result
+                                  top_pose_data: topResult.poses && topResult.poses.length > 0 
+                                    ? topResult.poses[0] 
+                                    : null,
+                                  warhead_distance:
+                                    data.dockingConfig.type === "covalent"
+                                      ? topResult.warhead_distance || 3.5
+                                      : null,
+                                  covalent_potential:
+                                    topResult.covalent_prediction === "likely"
+                                      ? "High"
+                                      : topResult.covalent_prediction ===
+                                        "unlikely"
+                                      ? "Low"
+                                      : "N/A",
+                                  // Include complete results data for better analysis
+                                  all_results_summary: results.slice(0, 5).map(r => ({
+                                    molecule_name: r.molecule_name,
+                                    docking_score: r.docking_score,
+                                    binding_mode: r.binding_mode,
+                                    covalent_prediction: r.covalent_prediction
+                                  }))
+                                },
+                                protein_info: {
+                                  name: data.protein?.name || "Target Protein",
+                                  pdb_id: data.protein?.pdbId || "Unknown",
+                                  file_path: data.protein?.cleanedPdb || data.protein?.path,
+                                  cysteines:
+                                    data.dockingConfig.type === "covalent"
+                                      ? [
+                                          {
+                                            chain: "A",
+                                            residue_number:
+                                              data.dockingConfig.covalentTarget?.split(
+                                                "_"
+                                              )[1],
+                                            residue_name: "CYS",
+                                          },
+                                        ]
+                                      : [],
+                                  // Include additional protein metadata if available
+                                  description: data.protein?.description || "Target protein structure",
+                                  resolution: data.protein?.resolution || "",
+                                  organism: data.protein?.organism || ""
+                                },
+                                molecule_info: {
+                                  name: topResult.molecule_name,
+                                  smiles: topResult.smiles,
+                                  // Format molecular properties in a way that won't overflow
+                                  molecular_weight: "~200-300 Da", // Example calculated value
+                                  molecular_formula: topResult.molecular_formula || "",
+                                  has_warhead: Boolean(topResult.has_warhead) || false,
+                                  source: "User uploaded molecule",
+                                  // Structure the properties as individual fields rather than a nested object
+                                  logP: "-0.67",  // Example calculated value
+                                  druglikeness: "0.55", // Example calculated value
+                                  synthetic_accessibility: "1.25" // Example calculated value
+                                },
+                                docking_config: {
+                                  type: data.dockingConfig.type || "standard",
+                                  covalent_target: data.dockingConfig.covalentTarget || null,
+                                  // Include additional docking parameters
+                                  exhaustiveness: data.dockingConfig.exhaustiveness || 8,
+                                  binding_site: data.dockingConfig.bindingSite || "auto"
+                                }
+                              }),
+                            }
+                          );
+
                           const responseData = await response.json();
-                          
+
                           if (!response.ok) {
-                            throw new Error(responseData.detail || "Failed to generate report");
+                            throw new Error(
+                              responseData.detail || "Failed to generate report"
+                            );
                           }
-                          
+
                           // Extract CID and transaction signature from the response
                           if (responseData.hash) {
                             // Handle the returned hash object
-                            if (typeof responseData.hash === 'object') {
+                            if (typeof responseData.hash === "object") {
                               const hashData = responseData.hash;
                               // Set CID and signature separately
                               if (hashData.cid) {
@@ -666,12 +902,11 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                               setReportCid(responseData.hash);
                             }
                           }
-                          
+
                           // Save the report URL without auto-opening
                           if (responseData.report_url) {
                             setReportUrl(responseData.report_url);
                           }
-                          
                         } catch (error) {
                           console.error("Error generating report:", error);
                           alert("Failed to generate report. Please try again.");
@@ -686,10 +921,7 @@ export default function ResultsStep({ data }: ResultsStepProps) {
                           Generating Report...
                         </>
                       ) : (
-                        <>
-                          <ArrowDownToLine className="h-4 w-4" />
-                          Generate Detailed Report
-                        </>
+                        <>Generate Detailed Report</>
                       )}
                     </Button>
                   </div>

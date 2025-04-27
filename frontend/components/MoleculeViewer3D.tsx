@@ -29,14 +29,13 @@ export default function MoleculeViewer3D({
   bindingSiteCoords,
   poseCoordinates,
 }: MoleculeViewer3DProps) {
-  // Normalize pdbqtUrl if it's a relative path
-  const normalizedPdbqtUrl = pdbqtUrl && !pdbqtUrl.startsWith('http') && pdbqtUrl !== '#' 
-    ? `http://localhost:8000${pdbqtUrl}` 
-    : pdbqtUrl;
-
+  // Normalize paths to ensure they point to the backend server
+  const normalizedPdbUrl = normalizePath(pdbUrl);
+  const normalizedPdbqtUrl = normalizePath(pdbqtUrl);
+  
   return (
     <Viewer
-      pdbUrl={pdbUrl}
+      pdbUrl={normalizedPdbUrl}
       pdbqtUrl={normalizedPdbqtUrl}
       showSurface={showSurface}
       showBindingSite={showBindingSite}
@@ -45,4 +44,20 @@ export default function MoleculeViewer3D({
       poseCoordinates={poseCoordinates}
     />
   );
+}
+
+// Helper function to normalize paths to point to backend server
+function normalizePath(path?: string): string | undefined {
+  if (!path || path === '#') return path;
+  
+  // If it's already a full URL, return it
+  if (path.startsWith('http')) return path;
+  
+  // If it's a relative path starting with /uploads, make it point to backend
+  if (path.startsWith('/uploads')) {
+    return `http://localhost:8000${path}`;
+  }
+  
+  // Otherwise, assume it's already a valid path or handle other cases
+  return path;
 }
