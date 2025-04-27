@@ -1,13 +1,16 @@
 import os
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
 RUST_SERVER_URL = os.getenv("RUST_SERVER_URL", "http://127.0.0.1:8080")
 USE_SOLANA = os.getenv("USE_SOLANA", "false").lower() == "true"
 
 # Default keypair path - matches Solana CLI's default location
-KEYPAIR_PATH = os.path.expanduser("/home/kshitij/dev/ai-docking-1/account_key_pair.json")
+KEYPAIR_PATH = os.path.expanduser("/home/kshitij/dev/dorahacks/BindForge/id.json")
 
 async def store_cid_on_solana(cid: str):
     """
@@ -119,7 +122,8 @@ async def store_cid_on_solana(cid: str):
                 "account": account_key,
                 "status": "success",
                 "cid": cid,
-                "store_signature": tx_signature, 
+                "store_signature": tx_signature
+                # Removed redundant hash field
             }
         else:
             return {
@@ -127,12 +131,12 @@ async def store_cid_on_solana(cid: str):
                 "status": "failed",
                 "error": "Transaction failed",
                 "details": str(result),
-                "store_signature": None,  
+                "store_signature": None
             }
     else:
         # Not using Solana, inform the user
         return {
             "status": "failed",
             "error": "Solana not enabled",
-            "details": "Please enable Solana to use this feature",
+            "details": "Please enable Solana to use this feature"
         }

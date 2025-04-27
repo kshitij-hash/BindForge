@@ -33,6 +33,9 @@ import os
 # some soalana and ipfs imports
 from utils.cid_store import store_cid_on_solana
 from ipfs.pinata_post import upload_to_pinata
+from dotenv import load_dotenv 
+
+load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(
@@ -541,142 +544,125 @@ async def search_pubchem_compounds_route():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Add these endpoints
-docking_controller = DockingController()
-
 @app.post("/api/dock")
 async def dock_molecule(request: Request):
+    """
+    Perform molecular docking of a compound against a protein structure
+    
+    Request body:
+    - smiles: SMILES string of the molecule to dock
+    - protein_path: Path to the protein structure file
+    - filesystem_path: Optional direct filesystem path to the protein
+    - cysteine_id: Optional cysteine residue ID for covalent docking (format: "chain:resnum")
+    
+    Returns:
+    - JSON response with docking results including scores, poses, and binding information
+    """
     data = await request.json()
     
     # Get SMILES string from request
     smiles = data.get("smiles")
     if not smiles:
         raise HTTPException(status_code=400, detail="SMILES string required")
+
+    # Log request information
+    print(f"Dock request: SMILES={smiles}, paths={data.get('protein_path')}/{data.get('filesystem_path')}")
     
-    # Create a new docking controller for each request
+    # Create a docking controller
     docking_controller = DockingController()
     
-    # Process the protein path - try multiple approaches to find the protein
-    protein_path = data.get("protein_path")
-    filesystem_path = data.get("filesystem_path")  # Check if frontend passes this directly
+    # Process protein path - try to find the protein file
+    protein_path = None
+    file_candidates = []
     
-    print(f"Received protein_path: {protein_path}")
-    print(f"Received filesystem_path: {filesystem_path}")
+    # Check filesystem_path first (most direct)
+    if data.get("filesystem_path") and os.path.exists(data.get("filesystem_path")):
+        protein_path = data.get("filesystem_path")
     
-    # Try the filesystem path first if provided
-    if filesystem_path and os.path.exists(filesystem_path):
-        docking_controller.set_protein(filesystem_path)
-        print(f"Using direct filesystem path: {filesystem_path}")
-    elif protein_path:
-        # Handle different path formats
-        if protein_path.startswith("/uploads/"):
-            # Convert URL path to filesystem path
-            local_path = os.path.join(UPLOAD_FOLDER, protein_path.replace("/uploads/", "", 1))
-            print(f"Looking for protein at: {local_path}")  # Debug print
-            
-            if os.path.exists(local_path):
-                docking_controller.set_protein(local_path)
-                print(f"Protein structure set to: {local_path}")
-            else:
-                # Try to check if it's a PDB file that needs to be converted to PDBQT
-                pdb_path = local_path
-                if local_path.endswith('.pdbqt'):
-                    pdb_path = local_path.replace('.pdbqt', '.pdb')
-                
-                if os.path.exists(pdb_path):
-                    print(f"Found PDB at: {pdb_path}")
-                    docking_controller.set_protein(pdb_path)
-                else:
-                    raise HTTPException(status_code=404, detail=f"Protein file not found at {local_path}")
-        elif protein_path.startswith("http"):
-            # Extract just the path part if it's a full URL
-            from urllib.parse import urlparse
-            parsed_url = urlparse(protein_path)
-            path_part = parsed_url.path
-            
-            if path_part.startswith("/uploads/"):
-                local_path = os.path.join(UPLOAD_FOLDER, path_part.replace("/uploads/", "", 1))
-                if os.path.exists(local_path):
-                    docking_controller.set_protein(local_path)
-                    print(f"Protein structure set to: {local_path}")
-                else:
-                    raise HTTPException(status_code=404, detail=f"Protein file not found at {local_path}")
-        else:
-            # Check if it's a direct path
-            if os.path.exists(protein_path):
-                docking_controller.set_protein(protein_path)
-            else:
-                # Try as a relative path within UPLOAD_FOLDER
-                local_path = os.path.join(UPLOAD_FOLDER, protein_path.lstrip("/"))
-                if os.path.exists(local_path):
-                    docking_controller.set_protein(local_path)
-                else:
-                    raise HTTPException(
-                        status_code=404, 
-                        detail=f"Protein file not found: {protein_path}"
-                    )
-    
-    # If still no protein path, try to find it in the prepared_proteins directory
-    if not docking_controller.protein_path and protein_path:
-        # Strip URL parts and extract just the filename
-        protein_filename = os.path.basename(protein_path)
-        prepared_protein_dir = os.path.join(UPLOAD_FOLDER, "prepared_proteins")
+    # If not found, try protein_path with different interpretations
+    if not protein_path and data.get("protein_path"):
+        path = data.get("protein_path")
         
-        # Try to find a matching file in the prepared_proteins directory
-        for root, _, files in os.walk(prepared_protein_dir):
-            for file in files:
-                if protein_filename in file:
-                    potential_path = os.path.join(root, file)
-                    if os.path.exists(potential_path):
-                        docking_controller.set_protein(potential_path)
-                        print(f"Found protein by filename match: {potential_path}")
-                        break
-    
-    if not docking_controller.protein_path:
-        # Try to use a default protein if available
-        default_paths = [
-            os.path.join(os.path.dirname(__file__), "data/proteins/default_protein.pdbqt"),
-            os.path.join(UPLOAD_FOLDER, "structures/default_protein.pdbqt"),
-            os.path.join(UPLOAD_FOLDER, "cleaned/default_protein.pdb")
-        ]
+        # Check if it's a URL path
+        if path.startswith("/uploads/"):
+            file_candidates.append(os.path.join(UPLOAD_FOLDER, path.replace("/uploads/", "", 1)))
         
-        for path in default_paths:
-            if os.path.exists(path):
-                docking_controller.set_protein(path)
-                print(f"Using default protein at: {path}")
+        # Check if it's a direct path
+        file_candidates.append(path)
+        
+        # Check if it's a relative path
+        file_candidates.append(os.path.join(UPLOAD_FOLDER, path.lstrip("/")))
+        
+        # Try PDB variants if PDBQT is specified
+        for candidate in list(file_candidates):
+            if candidate.endswith(".pdbqt"):
+                file_candidates.append(candidate.replace(".pdbqt", ".pdb"))
+        
+        # Find first existing file
+        for candidate in file_candidates:
+            if os.path.exists(candidate):
+                protein_path = candidate
                 break
-                
-    if not docking_controller.protein_path:
-        raise HTTPException(status_code=400, detail="Protein structure not set. Please provide a valid protein structure path.")
     
-    # Get cysteine residue ID if doing covalent docking
+    # Last resort: search in prepared_proteins directory for the filename
+    if not protein_path and data.get("protein_path"):
+        filename = os.path.basename(data.get("protein_path"))
+        prepared_dir = os.path.join(UPLOAD_FOLDER, "prepared_proteins")
+        
+        if os.path.exists(prepared_dir):
+            for root, _, files in os.walk(prepared_dir):
+                for file in files:
+                    if filename in file:
+                        candidate = os.path.join(root, file)
+                        if os.path.exists(candidate):
+                            protein_path = candidate
+                            break
+    
+    # If we still don't have a protein path, error out
+    if not protein_path:
+        raise HTTPException(status_code=400, detail="Could not find valid protein structure file")
+    
+    # Set the protein file in the docking controller
+    try:
+        docking_controller.set_protein(protein_path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error loading protein: {str(e)}")
+    
+    # Get cysteine ID for covalent docking
     cysteine_id = data.get("cysteine_id")
     
-    # Perform docking
+    # Run docking
     try:
-        results = docking_controller.dock_from_smiles(
-            smiles=smiles, 
-            cysteine_id=cysteine_id
-        )
+        results = docking_controller.dock_from_smiles(smiles=smiles, cysteine_id=cysteine_id)
+        
+        # Process URLs in results to be frontend-compatible
+        if "poses" in results:
+            for pose in results["poses"]:
+                if "pose_file" in pose and os.path.exists(pose["pose_file"]):
+                    relpath = os.path.relpath(pose["pose_file"], start=UPLOAD_FOLDER)
+                    pose["pdbqt_url"] = f"/uploads/{relpath}"
+        
         return results
     except Exception as e:
         import traceback
         print(f"Docking error: {str(e)}")
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Docking failed: {str(e)}")
+
 
 @app.post("/api/detect-warheads")
 async def detect_warheads(request: Request):
     data = await request.json()
     smiles = data.get("smiles")
-    
+
     if not smiles:
         raise HTTPException(status_code=400, detail="SMILES string required")
-    
+
     detector = WarheadDetector()
     result = detector.detect_warheads(smiles)
-    
+
     return result
+
 
 @app.post("/api/generate-report")
 async def generate_report_route(request: Request):
@@ -684,52 +670,51 @@ async def generate_report_route(request: Request):
     Generate a detailed PDF report for docking results
     """
     data = await request.json()
-    
+
     docking_results = data.get("docking_results", {})
     protein_info = data.get("protein_info", {})
     molecule_info = data.get("molecule_info", {})
-    
+
     try:
         reports_dir = os.path.join(UPLOAD_FOLDER, "reports")
         os.makedirs(reports_dir, exist_ok=True)
-        
+
         report_path = generate_docking_report(
-            docking_results, 
-            protein_info, 
-            molecule_info, 
-            reports_dir
+            docking_results, protein_info, molecule_info, reports_dir
         )
 
         print(f"Report generated at: {report_path}")
 
-        # JWT token for pinata 
+        # JWT token for pinata
         PINATA_JWT_TOKEN = os.getenv("JWT")
 
         # Here we will upload the report to IPFS
         cid = upload_to_pinata(report_path, PINATA_JWT_TOKEN)
 
-        if not cid: 
-            raise HTTPException(status_code=500, detail="Failed to upload report to IPFS")
+        if not cid:
+            raise HTTPException(
+                status_code=500, detail="Failed to upload report to IPFS"
+            )
 
-        # Store CID in CID store
-        hash = store_cid_on_solana(cid)
+        # Store CID in CID store - add await here since it's an async function
+        hash = await store_cid_on_solana(cid)
 
         print(f"This is the hash {hash}")
-
 
         # Generate URL for downloading the report
         report_rel_path = os.path.relpath(report_path, start=UPLOAD_FOLDER)
         report_url = f"/uploads/{report_rel_path}"
-        
+
         return {
             "success": True,
             "report_url": report_url,
             "filename": os.path.basename(report_path),
-            "hash": hash
+            "hash": hash,
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/")
 async def home():

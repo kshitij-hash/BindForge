@@ -1,0 +1,38 @@
+HEADER    HYDROLASE                               23-FEB-98   1A30              
+TITLE     STRUCTURE OF HIV-1 PROTEASE IN COMPLEX WITH THE INHIBITOR BEA369      
+COMPND    MOL_ID: 1;                                                            
+COMPND   2 MOLECULE: HIV-1 PROTEASE;                                            
+COMPND   3 CHAIN: A, B;                                                         
+COMPND   4 EC: 3.4.23.-;                                                        
+COMPND   5 ENGINEERED: YES                                                      
+SOURCE    MOL_ID: 1;                                                            
+SOURCE   2 ORGANISM_SCIENTIFIC: HUMAN IMMUNODEFICIENCY VIRUS 1;                 
+SOURCE   3 ORGANISM_COMMON: HIV-1;                                              
+SOURCE   4 ORGANISM_TAXID: 11676;                                               
+SOURCE   5 GENE: POL;                                                           
+SOURCE   6 EXPRESSION_SYSTEM: ESCHERICHIA COLI;                                 
+SOURCE   7 EXPRESSION_SYSTEM_TAXID: 562                                         
+ATOM      1  N   PRO A   1      29.361  31.093  66.848  1.00 34.65           N  
+ATOM      2  CA  PRO A   1      30.307  30.556  67.826  1.00 30.68           C  
+ATOM      3  C   PRO A   1      29.760  29.456  68.711  1.00 26.69           C  
+ATOM      4  O   PRO A   1      28.933  28.657  68.290  1.00 26.37           O  
+ATOM      5  CB  PRO A   1      31.441  29.985  66.953  1.00 36.06           C  
+ATOM      6  CG  PRO A   1      30.712  29.632  65.698  1.00 35.70           C  
+ATOM      7  CD  PRO A   1      29.317  30.042  66.016  1.00 35.01           C  
+ATOM      8  N   GLN A   2      30.237  29.399  69.950  1.00 24.86           N  
+ATOM      9  CA  GLN A   2      29.824  28.393  70.914  1.00 24.38           C  
+ATOM     10  C   GLN A   2      30.893  27.337  71.108  1.00 22.96           C  
+ATOM     11  O   GLN A   2      32.092  27.642  71.147  1.00 22.88           O  
+ATOM     12  CB  GLN A   2      29.574  29.015  72.267  1.00 21.29           C  
+ATOM     13  CG  GLN A   2      28.270  29.776  72.327  1.00 24.94           C  
+ATOM     14  CD  GLN A   2      27.167  28.745  72.508  1.00 27.89           C  
+ATOM     15  OE1 GLN A   2      27.316  27.511  72.790  1.00 28.85           O  
+ATOM     16  NE2 GLN A   2      25.907  29.224  72.364  1.00 26.36           N  
+ATOM     17  N   CYS A   3      30.504  26.062  71.214  1.00 20.69           N  
+ATOM     18  CA  CYS A   3      31.457  24.968  71.384  1.00 20.50           C  
+ATOM     19  C   CYS A   3      32.261  25.142  72.660  1.00 20.49           C  
+ATOM     20  O   CYS A   3      33.433  24.767  72.701  1.00 20.19           O  
+ATOM     21  CB  CYS A   3      30.723  23.612  71.407  1.00 19.60           C  
+ATOM     22  SG  CYS A   3      30.100  23.115  69.792  1.00 21.62           S  
+TER      23      CYS A   3
+END                                                                             

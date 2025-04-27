@@ -1,6 +1,6 @@
 import os 
 import requests
-
+from dotenv import load_dotenv  # Import the missing load_dotenv function
 
 # load all the enviroment variables 
 load_dotenv() 
@@ -14,10 +14,9 @@ def upload_to_pinata(file_path, jwt_token):
         return None
 
     headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {jwt_token}"
     }
-
+    
     try:
         with open(file_path, "rb") as file:
             response = requests.post(url, files={"file": file}, headers=headers)
@@ -28,10 +27,9 @@ def upload_to_pinata(file_path, jwt_token):
                 print(f"File uploaded successfully: {cid}")
                 return cid
             else: 
-                print(f"Error uploading file: {response_data.get("error", 'Unknown error')}")
+                print(f"Error uploading file: {response_data.get('error', 'Unknown error')}")
                 return None
 
     except Exception as e: 
         print(f"HTTP Exception: Failed to upload PDF to Pinata, Error: {e}")
         return None
-        

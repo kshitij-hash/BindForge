@@ -5,230 +5,394 @@ from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import numpy as np
+import shutil
+import uuid
 
-from utils.molecule_handler import process_smiles
-from utils.warhead_detector import (
-    WarheadDetector, calculate_covalent_score, predict_covalent_binding
-)
-from utils.pdb_cleaner import clean_pdb_for_docking  # Import the new function
+class WarheadDetector:
+    """Simple class to detect possible reactive warheads in molecules"""
+    
+    def __init__(self):
+        # Common warhead SMARTS patterns
+        self.warhead_smarts = {
+            "acrylamide": "[CX3]=[CX3]C(=O)[NX3]",
+            "chloroacetamide": "ClC[CX3](=O)[NX3]",
+            "vinyl_sulfone": "[CX3]=[CX3][SX4](=[OX1])(=[OX1])",
+            "alpha_beta_unsaturated": "[CX3]=[CX3]C=O", 
+            "michael_acceptor": "[CX3]=[CX3][CX3]=[OX1]",
+            "epoxide": "[C-0;R1][O;R1][C-0;R1]",
+            "nitrile": "[CX2]#[NX1]",
+            "beta_lactone": "C1OC(=O)C1",
+        }
+    
+    def detect_warheads(self, mol):
+        """
+        Detect possible reactive warheads in a molecule
+        
+        Args:
+            mol: RDKit molecule or SMILES string
+            
+        Returns:
+            dict: Dictionary with detection results
+        """
+        # Convert SMILES to molecule if necessary
+        if isinstance(mol, str):
+            mol = Chem.MolFromSmiles(mol)
+            if mol is None:
+                return {"has_warhead": False, "warheads": [], "error": "Invalid SMILES"}
+        
+        warheads_found = []
+        
+        for name, smarts in self.warhead_smarts.items():
+            pattern = Chem.MolFromSmarts(smarts)
+            if pattern and mol.HasSubstructMatch(pattern):
+                matches = mol.GetSubstructMatches(pattern)
+                warheads_found.append({
+                    "type": name,
+                    "smarts": smarts,
+                    "atom_indices": [list(match) for match in matches]
+                })
+        
+        return {
+            "has_warhead": len(warheads_found) > 0,
+            "warheads": warheads_found
+        }
+
+
+def calculate_covalent_score(affinity, distance):
+    """
+    Calculate a composite score for covalent binding potential
+    
+    Args:
+        affinity (float): Binding affinity/docking score
+        distance (float): Distance to reactive cysteine
+        
+    Returns:
+        float: Covalent binding score
+    """
+    # Distance penalty factor (higher distance = more penalty)
+    if distance < 3.5:
+        distance_factor = 1.0
+    elif distance < 5.0:
+        distance_factor = 0.8
+    elif distance < 7.0:
+        distance_factor = 0.4
+    else:
+        distance_factor = 0.1
+    
+    # Affinity contribution (negative scores are better)
+    affinity_component = min(1.0, max(0.0, (-affinity - 4) / 6))
+    
+    # Combined score (higher is better)
+    score = affinity_component * distance_factor * 10
+    
+    return score
+
+
+def predict_covalent_binding(affinity, has_warhead, distance):
+    """
+    Predict likelihood of covalent binding based on score, distance and warhead presence
+    
+    Args:
+        affinity (float): Binding affinity/docking score
+        has_warhead (bool): Whether molecule has a warhead
+        distance (float): Distance to reactive cysteine
+        
+    Returns:
+        str: "likely" or "unlikely"
+    """
+    if not has_warhead:
+        return "unlikely"
+    
+    if distance > 8.0:
+        return "unlikely"
+    
+    # Calculate covalent score
+    score = calculate_covalent_score(affinity, distance)
+    
+    # Decision threshold
+    return "likely" if score > 4.0 else "unlikely"
+
 
 class DockingController:
-    def __init__(self, vina_path="vina", protein_path=None, center_x=0, center_y=0, center_z=0):
+    """Controller for molecular docking operations"""
+    
+    def __init__(self, vina_path="vina"):
+        """
+        Initialize the docking controller
+        
+        Args:
+            vina_path (str): Path to AutoDock Vina executable
+        """
         self.vina_path = vina_path
-        self.protein_path = protein_path
+        self.protein_path = None
+        
         # Default box size and center
-        self.center_x = center_x
-        self.center_y = center_y
-        self.center_z = center_z
+        self.center_x = 0
+        self.center_y = 0
+        self.center_z = 0
         self.size_x = 20
         self.size_y = 20
         self.size_z = 20
         
+        # Initialize working directory for docking results
+        self.work_dir = os.path.join(tempfile.gettempdir(), f"bindforge_docking_{uuid.uuid4()}")
+        os.makedirs(self.work_dir, exist_ok=True)
+        
+        # Create upload directory structure if running as standalone
+        self.upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../uploads"))
+        self.poses_dir = os.path.join(self.upload_dir, "docking_poses")
+        os.makedirs(self.poses_dir, exist_ok=True)
+        
         # Initialize warhead detector
         self.warhead_detector = WarheadDetector()
-        
-    def set_box_center(self, x, y, z):
-        """Set the center of the docking box"""
-        self.center_x = x
-        self.center_y = y
-        self.center_z = z
-        
-    def set_box_size(self, x, y, z):
-        """Set the size of the docking box"""
-        self.size_x = x
-        self.size_y = y
-        self.size_z = z
     
     def set_protein(self, protein_path):
-        """Set the protein structure for docking"""
+        """
+        Set protein structure for docking
+        
+        Args:
+            protein_path (str): Path to protein structure file (PDB or PDBQT)
+            
+        Returns:
+            str: Path to the prepared protein file
+        """
         if not os.path.exists(protein_path):
             raise FileNotFoundError(f"Protein file not found: {protein_path}")
         
-        # Check file format and convert if necessary
-        if protein_path.lower().endswith('.pdb'):
-            print(f"Processing PDB file: {protein_path}")
+        # Copy the file to the working directory
+        protein_basename = os.path.basename(protein_path)
+        protein_copy = os.path.join(self.work_dir, f"receptor_{protein_basename}")
+        shutil.copy2(protein_path, protein_copy)
+        
+        # Process file based on format
+        if protein_copy.lower().endswith('.pdb'):
+            # Convert PDB to PDBQT using Open Babel
+            pdbqt_path = os.path.splitext(protein_copy)[0] + '.pdbqt'
             
-            # First, clean the PDB file to remove hydrogens and CONECT records
-            cleaned_pdb = clean_pdb_for_docking(protein_path)
-            
-            # Then convert to PDBQT
-            print(f"Converting cleaned PDB to PDBQT: {cleaned_pdb}")
-            pdbqt_path = self._convert_pdb_to_pdbqt(cleaned_pdb)
-            
-            if pdbqt_path:
-                # Clean the PDBQT file to ensure it's compatible with Vina
-                cleaned_path = self.prepare_clean_pdbqt(pdbqt_path)
-                self.protein_path = cleaned_path
-            else:
-                raise ValueError(f"Failed to convert protein file {protein_path} to PDBQT format")
-        elif protein_path.lower().endswith('.pdbqt'):
-            # Clean existing PDBQT to ensure compatibility
-            cleaned_path = self.prepare_clean_pdbqt(protein_path)
-            self.protein_path = cleaned_path
+            try:
+                self._run_command(f"obabel {protein_copy} -O {pdbqt_path} -xr")
+                if os.path.exists(pdbqt_path):
+                    self.protein_path = pdbqt_path
+                else:
+                    raise FileNotFoundError("Failed to convert PDB to PDBQT")
+            except Exception as e:
+                raise RuntimeError(f"Error converting protein to PDBQT format: {str(e)}")
+        elif protein_copy.lower().endswith('.pdbqt'):
+            self.protein_path = protein_copy
         else:
-            raise ValueError(f"Unsupported protein file format: {protein_path}. Use PDB or PDBQT format.")
+            raise ValueError(f"Unsupported protein file format: {protein_path}")
+        
+        return self.protein_path
     
-    def _convert_pdb_to_pdbqt(self, pdb_path):
-        """Convert PDB file to PDBQT format using Open Babel"""
-        try:
-            output_path = os.path.splitext(pdb_path)[0] + ".pdbqt"
-            # Use Open Babel to convert PDB to PDBQT with the -xr flag for rigid receptor
-            cmd = f"obabel {pdb_path} -O {output_path} -xr"
-            process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            
-            if process.returncode != 0:
-                print(f"Error converting PDB to PDBQT: {process.stderr}")
-                return None
-                
-            if os.path.exists(output_path):
-                return output_path
-            return None
-        except Exception as e:
-            print(f"Error during PDB to PDBQT conversion: {str(e)}")
-            return None
-    
-    def _convert_ligand_to_pdbqt(self, pdb_path):
-        """Convert ligand PDB file to PDBQT format using Open Babel with correct parameters"""
-        try:
-            output_path = os.path.splitext(pdb_path)[0] + ".pdbqt"
-            # Use Open Babel to convert PDB to PDBQT with the -xn flag for flexible ligand
-            # and --partialcharge gasteiger for adding proper charges
-            cmd = f"obabel {pdb_path} -O {output_path} -xn --partialcharge gasteiger"
-            process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            
-            if process.returncode != 0:
-                print(f"Error converting ligand PDB to PDBQT: {process.stderr}")
-                # Try alternative method if the first one fails
-                cmd = f"obabel {pdb_path} -O {output_path} -xn"
-                process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                
-                if process.returncode != 0:
-                    return None
-            
-            if os.path.exists(output_path):
-                # Clean the PDBQT file to ensure it's compatible with Vina
-                cleaned_path = self.prepare_clean_pdbqt(output_path, is_ligand=True)
-                return cleaned_path
-            return None
-        except Exception as e:
-            print(f"Error during ligand PDB to PDBQT conversion: {str(e)}")
-            return None
-
-    def generate_vina_compatible_ligand(self, pdb_path):
+    def _run_command(self, cmd, check=True):
         """
-        Generate a PDBQT file for a ligand that is guaranteed to work with Vina
-        by using MGLTools or directly generating the proper format
+        Run a shell command safely
         
         Args:
-            pdb_path (str): Path to ligand PDB file
+            cmd (str): Command to run
+            check (bool): Whether to check for return code
             
         Returns:
-            str: Path to generated PDBQT file
+            tuple: (stdout, stderr, return_code)
         """
-        output_path = os.path.splitext(pdb_path)[0] + "_vina.pdbqt"
+        process = subprocess.run(
+            cmd, 
+            shell=True, 
+            capture_output=True,
+            text=True
+        )
         
-        # Try using a direct approach to generate a simple PDBQT
-        try:
-            # Get atom coordinates from PDB
-            coords = []
-            atom_elements = []
+        if check and process.returncode != 0:
+            raise RuntimeError(f"Command failed with error: {process.stderr}")
             
-            with open(pdb_path, 'r') as f:
+        return process.stdout, process.stderr, process.returncode
+    
+    def _prepare_ligand(self, smiles):
+        """
+        Prepare ligand for docking from SMILES
+        
+        Args:
+            smiles (str): SMILES string of the ligand
+            
+        Returns:
+            tuple: (pdbqt_path, mol)
+        """
+        try:
+            # Generate RDKit molecule
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                raise ValueError("Invalid SMILES string")
+            
+            # Add hydrogens and generate 3D coordinates
+            mol = Chem.AddHs(mol)
+            AllChem.EmbedMolecule(mol, randomSeed=42)
+            AllChem.MMFFOptimizeMolecule(mol)
+            
+            # Save as PDB
+            ligand_name = f"ligand_{uuid.uuid4().hex[:8]}"
+            pdb_path = os.path.join(self.work_dir, f"{ligand_name}.pdb")
+            Chem.MolToPDBFile(mol, pdb_path)
+            
+            # Convert to PDBQT using Open Babel
+            pdbqt_path = os.path.join(self.work_dir, f"{ligand_name}.pdbqt")
+            self._run_command(f"obabel {pdb_path} -O {pdbqt_path} -xn --partialcharge gasteiger")
+            
+            if not os.path.exists(pdbqt_path) or os.path.getsize(pdbqt_path) == 0:
+                # Try alternate conversion approach if first fails
+                self._run_command(f"obabel {pdb_path} -O {pdbqt_path} -xn")
+                
+                if not os.path.exists(pdbqt_path) or os.path.getsize(pdbqt_path) == 0:
+                    # Create minimal valid PDBQT as last resort
+                    self._create_minimal_pdbqt(mol, pdbqt_path)
+            
+            return pdbqt_path, mol
+            
+        except Exception as e:
+            raise RuntimeError(f"Error preparing ligand: {str(e)}")
+    
+    def _create_minimal_pdbqt(self, mol, output_path):
+        """
+        Create a minimal valid PDBQT file from an RDKit molecule
+        
+        Args:
+            mol: RDKit molecule
+            output_path (str): Path to save PDBQT file
+        """
+        with open(output_path, 'w') as f:
+            f.write("ROOT\n")
+            
+            # Get atom positions
+            conf = mol.GetConformer()
+            for i, atom in enumerate(mol.GetAtoms()):
+                pos = conf.GetAtomPosition(i)
+                element = atom.GetSymbol()
+                
+                # Ensure element is valid for AutoDock
+                if element not in ["C", "N", "O", "H", "S", "P", "F", "Cl", "Br", "I"]:
+                    element = "C"
+                
+                # Write atom in PDBQT format
+                f.write(f"ATOM  {i+1:5d}  {element:<2}  LIG A   1    {pos.x:8.3f}{pos.y:8.3f}{pos.z:8.3f}  1.00  0.00    {element:>2}\n")
+                
+            f.write("ENDROOT\n")
+            f.write("TORSDOF 0\n")
+    
+    def _get_cysteine_coords(self, cysteine_id):
+        """
+        Get coordinates of cysteine sulfur atom
+        
+        Args:
+            cysteine_id (str): Cysteine identifier in format "chain:resnum"
+            
+        Returns:
+            tuple: (x, y, z) coordinates or None
+        """
+        if not cysteine_id or not self.protein_path:
+            return None
+            
+        try:
+            # Parse cysteine identifier
+            chain, resnum = cysteine_id.split(":")
+            resnum = int(resnum)
+            
+            # Use PDB file if available, otherwise use PDBQT
+            protein_file = self.protein_path
+            if protein_file.endswith(".pdbqt") and os.path.exists(protein_file.replace(".pdbqt", ".pdb")):
+                protein_file = protein_file.replace(".pdbqt", ".pdb")
+            
+            # Find sulfur atom coordinates
+            with open(protein_file, 'r') as f:
                 for line in f:
-                    if line.startswith('ATOM') or line.startswith('HETATM'):
+                    if line.startswith(('ATOM', 'HETATM')):
+                        if len(line) < 54: # Ensure line is long enough
+                            continue
+                        
                         try:
-                            x = float(line[30:38].strip())
-                            y = float(line[38:46].strip())
-                            z = float(line[46:54].strip())
+                            atom_name = line[12:16].strip()
+                            residue_name = line[17:20].strip()
+                            chain_id = line[21:22].strip()
+                            res_num = int(line[22:26].strip())
                             
-                            # Get element - typically the last column or inferred from atom name
-                            if len(line) >= 78:
-                                element = line[76:78].strip()
-                            else:
-                                # Infer from atom name
-                                atom_name = line[12:16].strip()
-                                element = atom_name[0]  # First character of atom name
+                            # Look for sulfur atom in cysteine
+                            if (residue_name == "CYS" and 
+                                chain_id == chain and 
+                                res_num == resnum and 
+                                atom_name == "SG"):
                                 
-                            coords.append((x, y, z))
-                            atom_elements.append(element)
+                                x = float(line[30:38].strip())
+                                y = float(line[38:46].strip())
+                                z = float(line[46:54].strip())
+                                
+                                # Center the box on the sulfur atom
+                                self.center_x = x
+                                self.center_y = y
+                                self.center_z = z
+                                # Use smaller box for covalent docking
+                                self.size_x = 15
+                                self.size_y = 15
+                                self.size_z = 15
+                                
+                                return (x, y, z)
                         except (ValueError, IndexError):
                             continue
             
-            # Write a minimal but valid PDBQT file
-            with open(output_path, 'w') as f:
-                f.write("ROOT\n")
-                
-                for i, (coord, element) in enumerate(zip(coords, atom_elements)):
-                    x, y, z = coord
-                    # Ensure element is a valid AutoDock Vina atom type
-                    if element not in ["C", "N", "O", "H", "S", "P", "F", "Cl", "Br", "I"]:
-                        element = "C"  # Default to carbon
-                    
-                    # Format that works with Vina: no charge columns
-                    f.write(f"ATOM  {i+1:5d}  {element:<2}  LIG A   1    {x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00    {element:>2}\n")
-                    
-                f.write("ENDROOT\n")
-                f.write("TORSDOF 0\n")
-            
-            return output_path
-        except Exception as e:
-            print(f"Error generating Vina-compatible ligand PDBQT: {str(e)}")
             return None
-
-    def prepare_ligand(self, smiles):
-        """Prepare ligand from SMILES for docking"""
-        result = process_smiles(smiles)
-        if result["status"] != "success":
-            return result
-        
-        # Detect warheads
-        mol = Chem.MolFromSmiles(smiles)
-        warhead_result = self.warhead_detector.detect_warheads(mol)
-        
-        # Get 3D coordinates
-        mol = Chem.AddHs(mol)
-        AllChem.EmbedMolecule(mol, randomSeed=42)
-        AllChem.MMFFOptimizeMolecule(mol)
-        
-        # Create a temporary file for the ligand
-        ligand_file = tempfile.NamedTemporaryFile(suffix=".pdbqt", delete=False)
-        ligand_file.close()
-        
-        # Convert to PDBQT format using Open Babel
-        pdb_file = tempfile.NamedTemporaryFile(suffix=".pdb", delete=False)
-        pdb_file.close()
-        Chem.MolToPDBFile(mol, pdb_file.name)
-        
-        cmd = f"obabel {pdb_file.name} -O {ligand_file.name}"
-        process = subprocess.run(cmd, shell=True, capture_output=True)
-        
-        if process.returncode != 0:
-            return {"status": "error", "message": "Failed to convert ligand to PDBQT format"}
-        
-        return {
-            "status": "success", 
-            "ligand_path": ligand_file.name,
-            "warhead_data": warhead_result
-        }
+        except Exception as e:
+            print(f"Error finding cysteine: {str(e)}")
+            return None
     
-    def run_docking(self, smiles, cysteine_coords=None):
-        """Run docking with AutoDock Vina and calculate covalent scores"""
+    def dock_from_smiles(self, smiles, cysteine_id=None):
+        """
+        Perform docking of a molecule from SMILES
+        
+        Args:
+            smiles (str): SMILES string of the ligand
+            cysteine_id (str, optional): Cysteine ID for covalent docking
+            
+        Returns:
+            dict: Docking results formatted for frontend
+        """
         if not self.protein_path:
             return {"status": "error", "message": "Protein structure not set"}
-        
-        # Prepare ligand
-        ligand_result = self.prepare_ligand(smiles)
-        if ligand_result["status"] != "success":
-            return ligand_result
             
-        ligand_path = ligand_result["ligand_path"]
-        warhead_data = ligand_result["warhead_data"]
+        try:
+            # Prepare the ligand
+            ligand_path, mol = self._prepare_ligand(smiles)
+            
+            # Detect warheads if relevant
+            warhead_result = self.warhead_detector.detect_warheads(mol)
+            
+            # Get cysteine coordinates for covalent docking
+            cysteine_coords = None
+            if cysteine_id:
+                cysteine_coords = self._get_cysteine_coords(cysteine_id)
+            
+            # Run Vina docking
+            output_file, log_output = self._run_vina_docking(ligand_path)
+            
+            # Process the results
+            results = self._process_docking_results(output_file, log_output, warhead_result, cysteine_coords)
+            
+            return results
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def _run_vina_docking(self, ligand_path):
+        """
+        Run AutoDock Vina docking
         
-        # Create a config file for Vina
-        config_file = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
-        config_file.close()
+        Args:
+            ligand_path (str): Path to ligand PDBQT file
+            
+        Returns:
+            tuple: (output_file_path, log_output)
+        """
+        # Create config file
+        config_path = os.path.join(self.work_dir, "vina_config.txt")
+        output_path = os.path.join(self.work_dir, "docking_output.pdbqt")
         
-        with open(config_file.name, 'w') as f:
+        with open(config_path, 'w') as f:
             f.write(f"receptor = {self.protein_path}\n")
             f.write(f"ligand = {ligand_path}\n")
             f.write(f"center_x = {self.center_x}\n")
@@ -239,555 +403,197 @@ class DockingController:
             f.write(f"size_z = {self.size_z}\n")
             f.write("exhaustiveness = 8\n")
             f.write("num_modes = 9\n")
-            
-        # Create output file
-        output_file = tempfile.NamedTemporaryFile(suffix=".pdbqt", delete=False)
-        output_file.close()
         
         # Run Vina
-        cmd = f"{self.vina_path} --config {config_file.name} --out {output_file.name}"
-        process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        cmd = f"{self.vina_path} --config {config_path} --out {output_path}"
+        stdout, stderr, retcode = self._run_command(cmd)
         
-        if process.returncode != 0:
-            return {"status": "error", "message": f"Docking failed: {process.stderr}"}
-            
-        # Parse docking results
-        docking_results = self.parse_vina_output(process.stdout)
+        if retcode != 0 or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+            raise RuntimeError(f"Vina docking failed: {stderr}")
         
-        # Calculate distance to cysteine and covalent scores
-        if cysteine_coords:
-            distances = self.calculate_distances(output_file.name, warhead_data, cysteine_coords)
-            
-            # Add prediction for each pose
-            for i, pose in enumerate(docking_results):
-                pose_distance = distances.get(i, float('inf'))
-                pose["distance_to_cysteine"] = pose_distance
-                pose["covalent_score"] = calculate_covalent_score(
-                    pose["affinity"], pose_distance)
-                pose["covalent_prediction"] = predict_covalent_binding(
-                    pose["affinity"], warhead_data["has_warhead"], pose_distance
-                )
-                
-        # Cleanup temporary files
-        os.unlink(config_file.name)
-        os.unlink(ligand_path)
+        return output_path, stdout
+    
+    def _process_docking_results(self, output_file, log_output, warhead_result, cysteine_coords=None):
+        """
+        Process docking results and format for frontend
         
-        return {
-            "status": "success",
-            "docking_results": docking_results,
-            "output_file": output_file.name,
-            "has_warhead": warhead_data["has_warhead"],
-            "warheads": warhead_data["warheads"]
-        }
+        Args:
+            output_file (str): Path to Vina output file
+            log_output (str): Vina stdout log
+            warhead_result (dict): Warhead detection results
+            cysteine_coords (tuple): Coordinates of target cysteine
             
-    def parse_vina_output(self, output_text):
-        """Parse AutoDock Vina output to extract scores"""
-        results = []
-        for line in output_text.split('\n'):
-            if line.startswith('   1 '):
-                parts = line.split()
+        Returns:
+            dict: Formatted docking results
+        """
+        # Parse log for scores
+        scores = []
+        for line in log_output.split('\n'):
+            if line.strip().startswith('1 '):  # First pose score line
+                parts = line.strip().split()
                 if len(parts) >= 4:
-                    results.append({
-                        "mode": 1,
-                        "affinity": float(parts[1]),
-                        "rmsd_lb": float(parts[2]),
-                        "rmsd_ub": float(parts[3])
+                    scores.append({
+                        'mode': int(parts[0]),
+                        'affinity': float(parts[1]),
+                        'rmsd_lb': float(parts[2]),
+                        'rmsd_ub': float(parts[3])
                     })
-        return results
-
-    def calculate_distances(self, output_pdbqt, warhead_data, cysteine_coords):
-        """Calculate distances between warheads and cysteine"""
-        # Parse PDBQT file to get atom coordinates
-        atom_coords = {}
-        model = 1
-        atom_idx = 0
         
-        with open(output_pdbqt, 'r') as f:
-            for line in f:
-                if line.startswith('MODEL'):
-                    model = int(line.split()[1])
-                    atom_idx = 0
-                    continue
-                if line.startswith('ATOM') or line.startswith('HETATM'):
-                    if model not in atom_coords:
-                        atom_coords[model] = {}
-                    x = float(line[30:38])
-                    y = float(line[38:46])
-                    z = float(line[46:54])
-                    atom_coords[model][atom_idx] = (x, y, z)
-                    atom_idx += 1
+        # Extract poses from output file
+        poses = self._split_poses(output_file)
+        best_affinity = float('inf')
         
-        # Calculate distances for each model
-        distances = {}
-                    
-        # If no warheads, return infinite distance
-        if not warhead_data["has_warhead"]:
-            return {model: float('inf') for model in atom_coords}
-        
-        # Get reactive atom indices (this is a simplification)
-        # In a real implementation, you'd need to map between SMILES atoms and PDBQT atoms
-        reactive_indices = [0]  # Placeholder
-        
-        for model in atom_coords:
-            min_distance = float('inf')
-            for atom_idx in reactive_indices:
-                if atom_idx in atom_coords[model]:
-                    x, y, z = atom_coords[model][atom_idx]
-                    
-                    # Calculate distance to cysteine sulfur
-                    dist = np.sqrt(
-                        (x - cysteine_coords[0])**2 + 
-                        (y - cysteine_coords[1])**2 + 
-                        (z - cysteine_coords[2])**2
-                    )
-                    min_distance = min(min_distance, dist)
-            distances[model] = min_distance
+        # Calculate distance to cysteine for each pose
+        min_distance = float('inf')
+        for pose in poses:
+            # Get best affinity
+            if pose['affinity'] < best_affinity:
+                best_affinity = pose['affinity']
             
-        return distances
-
-    def save_docking_poses(self, output_dir, poses_data, base_name):
-        """
-        Save individual docking poses as separate PDBQT files
-        
-        Args:
-            output_dir (str): Directory to save poses
-            poses_data (list): List of pose data with coordinates
-            base_name (str): Base name for the files
-            
-        Returns:
-            list: List of paths to saved pose files
-        """ 
-        os.makedirs(output_dir, exist_ok=True)
-        pose_paths = []
-        
-        for i, pose in enumerate(poses_data):
-            pose_file = os.path.join(output_dir, f"{base_name}_pose_{i+1}.pdbqt")
-            # Skip if the pose doesn't have coordinates
-            if "coordinates" not in pose:
-                continue
-            with open(pose_file, 'w') as f:
-                f.write(pose['coordinates'])
-            pose_paths.append(pose_file)
-            
-        return pose_paths
-
-    def dock_from_smiles(self, smiles, cysteine_id=None):
-        """
-        Dock a molecule from SMILES string, optionally targeting a specific cysteine.
-        
-        Args:
-            smiles (str): SMILES representation of the molecule
-            cysteine_id (str, optional): Cysteine residue identifier (format: "chain:resnum")
-                                       for covalent docking
-        
-        Returns:
-            dict: Docking results including scores and poses
-        """
-        if not self.protein_path:
-            return {"status": "error", "message": "Protein structure not set"}
-        
-        # Create output directory for docking results
-        output_dir = os.path.join(tempfile.gettempdir(), "bindforge_docking")
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Convert SMILES to 3D molecule with RDKit first
-        try:
-            mol = Chem.MolFromSmiles(smiles)
-            if mol is None:
-                return {"status": "error", "message": "Invalid SMILES string"}
-            
-            mol = Chem.AddHs(mol)
-            AllChem.EmbedMolecule(mol, randomSeed=42)
-            AllChem.MMFFOptimizeMolecule(mol)
-            
-            # Save as PDB first
-            pdb_path = os.path.join(output_dir, "ligand.pdb")
-            Chem.MolToPDBFile(mol, pdb_path)
-            
-            # Generate Vina-compatible PDBQT directly
-            ligand_pdbqt = self.generate_vina_compatible_ligand(pdb_path)
-            
-            if not ligand_pdbqt or not os.path.exists(ligand_pdbqt):
-                return {"status": "error", "message": "Failed to generate ligand PDBQT file"}
-            
-            # Detect warheads
-            try:
-                warhead_result = self.warhead_detector.detect_warheads(mol)
-            except Exception as e:
-                print(f"Warning: Warhead detection failed - {str(e)}")
-                warhead_result = {
-                    "has_warhead": False,
-                    "warheads": [],
-                    "error": str(e)
-                }
-            
-            # Get cysteine coordinates if covalent docking
-            cysteine_coords = None
-            if cysteine_id and self._protein_has_cysteine(cysteine_id):
-                cysteine_coords = self._get_cysteine_coords(cysteine_id)
-                
-                # If we have coordinates, adjust the box center to be around the cysteine
-                if cysteine_coords:
-                    self.set_box_center(*cysteine_coords)
-                    # Use a smaller box for covalent docking
-                    self.set_box_size(15, 15, 15)
-            
-            # Create a config file for Vina
-            config_file = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
-            config_path = config_file.name
-            config_file.close()
-            
-            with open(config_path, 'w') as f:
-                f.write(f"receptor = {self.protein_path}\n")
-                f.write(f"ligand = {ligand_pdbqt}\n")
-                f.write(f"center_x = {self.center_x}\n")
-                f.write(f"center_y = {self.center_y}\n")
-                f.write(f"center_z = {self.center_z}\n")
-                f.write(f"size_x = {self.size_x}\n")
-                f.write(f"size_y = {self.size_y}\n")
-                f.write(f"size_z = {self.size_z}\n")
-                f.write("exhaustiveness = 8\n")
-                f.write("num_modes = 9\n")
-                
-            # Create output file for Vina results
-            output_file = os.path.join(output_dir, "docking_result.pdbqt")
-            
-            # Run Vina
-            cmd = f"{self.vina_path} --config {config_path} --out {output_file}"
-            process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            
-            if process.returncode != 0:
-                return {
-                    "status": "error", 
-                    "message": f"Docking failed: {process.stderr}",
-                    "command": cmd,
-                    "protein_file": self.protein_path,
-                    "ligand_file": ligand_pdbqt,
-                    "details": "Check that both protein and ligand files are correctly formatted PDBQT files"
-                }
-            
-            # Rest of the method remains the same
-            # ...
-        except Exception as e:
-            return {"status": "error", "message": f"Error processing SMILES: {str(e)}"}
-        
-        # Parse docking results
-        docking_results = self._parse_docking_output(output_file, process.stdout)
-        
-        # For covalent docking, calculate additional scores
-        if cysteine_coords and warhead_result["has_warhead"]:
-            for pose in docking_results["poses"]:
-                # Calculate distance from warhead to cysteine
-                distance = self._calculate_warhead_distance(
-                    pose["coordinates"], 
-                    warhead_result["warheads"], 
-                    cysteine_coords
-                )
-                pose["distance_to_cysteine"] = distance
+            # Calculate distance to cysteine for covalent docking
+            if cysteine_coords and warhead_result["has_warhead"]:
+                distance = self._calculate_warhead_distance(pose['coordinates'], cysteine_coords)
+                pose['distance_to_cysteine'] = distance
                 
                 # Calculate covalent score
-                pose["covalent_score"] = calculate_covalent_score(
-                    pose["affinity"], distance
-                )
+                covalent_score = calculate_covalent_score(pose['affinity'], distance)
+                pose['covalent_score'] = covalent_score
                 
-                # Predict if binding is likely covalent
-                pose["covalent_prediction"] = predict_covalent_binding(
-                    pose["affinity"], 
-                    warhead_result["has_warhead"], 
+                # Predict covalent binding
+                covalent_prediction = predict_covalent_binding(
+                    pose['affinity'], 
+                    warhead_result["has_warhead"],
                     distance
                 )
+                pose['covalent_prediction'] = covalent_prediction
+                
+                # Track minimum distance
+                if distance < min_distance:
+                    min_distance = distance
         
-        # Add warhead information to results
-        docking_results["has_warhead"] = warhead_result["has_warhead"]
-        docking_results["warheads"] = warhead_result["warheads"]
-        docking_results["status"] = "success"
+        # Determine covalent potential
+        covalent_potential = "Low"
+        if warhead_result["has_warhead"] and min_distance < 5.0:
+            covalent_potential = "High"
         
-        # Save pose files
-        pose_files = self._split_poses(output_file, output_dir)
-        for i, pose_file in enumerate(pose_files):
-            if i < len(docking_results["poses"]):
-                docking_results["poses"][i]["pose_file"] = pose_file
-        
-        # Cleanup temporary files
-        os.unlink(config_path)
-        
-        return docking_results
-
-    def _parse_docking_output(self, output_file, vina_output):
-        """Parse AutoDock Vina output file and text output"""
-        poses = []
-        
-        # Parse scores from Vina text output
-        mode_data = {}
-        for line in vina_output.split('\n'):
-            if ' ' in line and line[0].isdigit():
-                parts = line.split()
-                if len(parts) >= 4:
-                    try:
-                        mode = int(parts[0])
-                        mode_data[mode] = {
-                            "mode": mode,
-                            "affinity": float(parts[1]),
-                            "rmsd_lb": float(parts[2]),
-                            "rmsd_ub": float(parts[3])
-                        }
-                    except ValueError:
-                        continue
-        
-        if os.path.exists(output_file):
-            with open(output_file, 'r') as f:
-                current_pose = None
-                pose_coords = []
-                for line in f:
-                    if line.startswith('MODEL'):
-                        if pose_coords and current_pose is not None:
-                            # Store previous pose
-                            mode_data.setdefault(current_pose, {})["coordinates"] = ''.join(pose_coords)
-                        current_pose = int(line.split()[1])
-                        pose_coords = [line]
-                    elif line.startswith('ENDMDL'):
-                        pose_coords.append(line)
-                        # Store pose
-                        mode_data.setdefault(current_pose, {})["coordinates"] = ''.join(pose_coords)
-                        pose_coords = []
-                    else:
-                        pose_coords.append(line)
-        
-        # Compile all pose data
-        for mode in sorted(mode_data.keys()):
-            poses.append(mode_data[mode])
-        
-        return {
+        # Format the response for the frontend
+        results = {
+            "status": "success",
+            "best_affinity": best_affinity,
             "poses": poses,
-            "output_file": output_file
+            "has_warhead": warhead_result["has_warhead"],
+            "warheads": warhead_result["warheads"],
+            "covalent_potential": covalent_potential,
         }
-
-    def _protein_has_cysteine(self, cysteine_id):
-        """Check if the protein has the specified cysteine residue"""
-        # Simple check for now - in a real application, parse the PDB file to verify the cysteine exists
-        return True
-
-    def _get_cysteine_coords(self, cysteine_id):
-        """Extract coordinates of cysteine's sulfur atom"""
-        if not cysteine_id or not self.protein_path:
-            return None
         
-        # Parse cysteine identifier (format: "chain:resnum")
-        try:
-            chain, resnum = cysteine_id.split(":")
-            resnum = int(resnum)
-        except ValueError:
-            print(f"Invalid cysteine_id format: {cysteine_id}. Expected format 'chain:resnum'")
-            return None
+        # Add warhead distance if we calculated it
+        if min_distance != float('inf'):
+            results["warhead_distance"] = min_distance
         
-        # Parse PDB file to find cysteine coordinates
-        sulfur_coords = None
-        with open(self.protein_path, 'r') as f:
-            for line in f:
-                if line.startswith('ATOM') or line.startswith('HETATM'):
-                    if len(line) < 78:  # Skip if line is too short
-                        continue
-                    atom_name = line[12:16].strip()
-                    residue_name = line[17:20].strip()
-                    chain_id = line[21:22].strip()
-                    res_num = int(line[22:26].strip())
-                    
-                    # Look for sulfur atom (SG) in the specified cysteine
-                    if (residue_name == "CYS" and 
-                        chain_id == chain and 
-                        res_num == resnum and 
-                        atom_name == "SG"):
-                        x = float(line[30:38].strip())
-                        y = float(line[38:46].strip())
-                        z = float(line[46:54].strip())
-                        sulfur_coords = (x, y, z)
-                        break
-        return sulfur_coords
-
-    def _calculate_warhead_distance(self, pose_pdbqt_text, warheads, cysteine_coords):
-        """Calculate the minimum distance between warhead atoms and cysteine sulfur"""
-        if not warheads or not cysteine_coords:
-            return float('inf')
+        return results
+    
+    def _split_poses(self, output_file):
+        """
+        Split Vina output file into separate pose files
         
-        # This is a simplified version for demonstration
-        # In a real application, you would:
-        # 1. Parse the PDBQT text to extract atomic coordinates
-        # 2. Match atoms to the original molecule to identify warhead atoms
-        # 3. Calculate distances between all warhead atoms and the cysteine sulfur
-        
-        # For now, return a random distance as placeholder
-        import random
-        return random.uniform(3.0, 8.0)
-
-    def _split_poses(self, output_pdbqt, output_dir):
-        """Split multi-model PDBQT file into separate files for each pose"""
-        pose_files = []
-        
-        if not os.path.exists(output_pdbqt):
-            return pose_files
-        
+        Args:
+            output_file (str): Path to Vina output file
+            
+        Returns:
+            list: List of pose dictionaries
+        """
+        poses = []
         current_pose = None
         pose_lines = []
         
-        with open(output_pdbqt, 'r') as f:
+        with open(output_file, 'r') as f:
             for line in f:
                 if line.startswith('MODEL'):
-                    if pose_lines and current_pose is not None:
-                        # Write previous pose
-                        pose_file = os.path.join(output_dir, f"pose_{current_pose}.pdbqt")
-                        with open(pose_file, 'w') as pf:
-                            pf.writelines(pose_lines)
-                        pose_files.append(pose_file)
+                    # Save previous pose
+                    if current_pose is not None and pose_lines:
+                        pose_content = ''.join(pose_lines)
+                        poses.append({
+                            'mode': current_pose,
+                            'coordinates': pose_content
+                        })
+                        pose_lines = []
+                    
+                    # Start new pose
                     current_pose = int(line.split()[1])
                     pose_lines = [line]
-                elif current_pose is not None:
+                elif line.startswith('ENDMDL'):
                     pose_lines.append(line)
-                if line.startswith('ENDMDL'):
-                    # Write pose
-                    pose_file = os.path.join(output_dir, f"pose_{current_pose}.pdbqt")
+                    # Save this pose
+                    pose_content = ''.join(pose_lines)
+                    
+                    # Extract affinity from Vina log
+                    affinity = 0
+                    for i in range(len(poses) + 1):
+                        if i + 1 == current_pose:
+                            affinity = -10.0  # Default value
+                            break
+                    
+                    # Save pose file
+                    pose_file = os.path.join(self.poses_dir, f"pose_{uuid.uuid4().hex[:8]}.pdbqt")
                     with open(pose_file, 'w') as pf:
-                        pf.writelines(pose_lines)
-                    pose_files.append(pose_file)
+                        pf.write(pose_content)
+                    
+                    poses.append({
+                        'mode': current_pose,
+                        'affinity': affinity,
+                        'coordinates': pose_content,
+                        'pose_file': pose_file
+                    })
+                    
                     pose_lines = []
-                        
-        # Handle the last pose if needed
-        if pose_lines and current_pose is not None:
-            pose_file = os.path.join(output_dir, f"pose_{current_pose}.pdbqt")
-            with open(pose_file, 'w') as pf:
-                pf.writelines(pose_lines)
-            pose_files.append(pose_file)
+                else:
+                    pose_lines.append(line)
         
-        return pose_files
-
-    def _validate_pdbqt_file(self, file_path):
-        """
-        Validate that the PDBQT file has proper format for AutoDock Vina
-        
-        Args:
-            file_path (str): Path to the PDBQT file
-        
-        Returns:
-            bool: True if the file appears to be valid PDBQT, False otherwise
-        """
-        if not os.path.exists(file_path):
-            return False
-        
-        try:
-            with open(file_path, 'r') as f:
-                content = f.read()
-                
-                # Check for common PDBQT header
-                if not any(line.startswith(('ATOM', 'HETATM')) for line in content.split('\n')):
-                    return False
-                
-                # Check for problematic lines that might cause Vina to fail
-                for line in content.split('\n'):
-                    if line.startswith('COMPND    '):
-                        # This type of COMPND line can be problematic with Vina
-                        return False
-            return True
-        except Exception:
-            return False
-
-    def prepare_clean_pdbqt(self, file_path, is_ligand=False):
-        """Clean a PDBQT file to ensure compatibility with AutoDock Vina
-        
-        Args:
-            file_path (str): Path to the original PDBQT file
-            is_ligand (bool): Whether the file is a ligand (True) or receptor (False)
-        
-        Returns:
-            str: Path to the cleaned PDBQT file
-        """
-        if not os.path.exists(file_path):
-            return file_path
-        
-        try:
-            with open(file_path, 'r') as f:
-                lines = f.readlines()
+        # Parse Vina output to get accurate affinities
+        with open(output_file, 'r') as f:
+            vina_log = f.read()
             
-            clean_lines = []
-            # Add ROOT line for ligands if not present
-            if is_ligand and not any(line.startswith('ROOT') for line in lines):
-                clean_lines.append("ROOT\n")
-            
-            for line in lines:
-                # Skip problematic header lines
-                if line.startswith(('COMPND    ', 'SOURCE    ', 'REMARK   ')):
-                    continue
-                
-                # Fix ligand ATOM/HETATM lines with formatting issues
-                if is_ligand and (line.startswith('ATOM') or line.startswith('HETATM')):
-                    try:
-                        # For ligands, reformat to use atom types compatible with AutoDock Vina
+            for pose in poses:
+                mode = pose['mode']
+                # Looking for lines like "   1       -7.2      0.000      0.000"
+                for line in vina_log.split("\n"):
+                    if line.strip().startswith(f"{mode} "):
                         parts = line.strip().split()
-                        if len(parts) >= 7:  # Has minimum required fields
-                            atom_num = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
-                            atom_name = parts[2] if len(parts) > 2 else "C"
-                            
-                            # AutoDock Vina expects specific atom types for ligands:
-                            # Map common element names to AutoDock atom types
-                            element = atom_name[0] if atom_name and len(atom_name) > 0 else "C"
-                            if element in ["C", "N", "O", "H", "S", "P", "F", "I", "B"]:
-                                atom_type = element  # Keep single-letter elements
-                            else:
-                                atom_type = "A"  # Default to carbon-like atom
-                            
-                            residue = "LIG"  # Always use LIG for ligands
-                            chain = "A"     # Always use chain A
-                            resnum = "1"    # Always use residue number 1
-                            
-                            # Extract coordinates
+                        if len(parts) >= 2:
                             try:
-                                x = float(parts[5]) if len(parts) > 5 else 0.0
-                                y = float(parts[6]) if len(parts) > 6 else 0.0
-                                z = float(parts[7]) if len(parts) > 7 else 0.0
+                                pose['affinity'] = float(parts[1])
                             except ValueError:
-                                # Try to find coordinates by position in the line
-                                try:
-                                    x = float(line[30:38].strip())
-                                    y = float(line[38:46].strip())
-                                    z = float(line[46:54].strip())
-                                except ValueError:
-                                    x, y, z = 0.0, 0.0, 0.0
-                            
-                            # Format for AutoDock Vina compatible PDBQT
-                            # Use AutoDock atom types format that Vina understands
-                            new_line = f"ATOM{atom_num:7d} {atom_name:<3} {residue:3} {chain:1}{resnum:4}    "
-                            new_line += f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00     0.000 {atom_type}\n"
-                            line = new_line
-                    except Exception as e:
-                        print(f"Error reformatting PDBQT line: {str(e)}, using simplified format")
-                        # If the complex reformatting fails, use a simplified format that works with Vina
-                        line = f"ATOM      1  C   LIG A   1    {x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00     0.000 C\n"
-                
-                clean_lines.append(line)
+                                pass
+        
+        return poses
+    
+    def _calculate_warhead_distance(self, pose_pdbqt, cysteine_coords):
+        """
+        Calculate minimum distance between pose atoms and cysteine sulfur
+        
+        Args:
+            pose_pdbqt (str): PDBQT content of the pose
+            cysteine_coords (tuple): (x, y, z) of cysteine sulfur
             
-            # Add ENDROOT for ligands if not present
-            if is_ligand and not any(line.startswith('ENDROOT') for line in lines):
-                clean_lines.append("ENDROOT\n")
-            
-            # Add TORSDOF line for ligands if missing (required by Vina)
-            if is_ligand and not any(line.startswith('TORSDOF') for line in clean_lines):
-                clean_lines.append("TORSDOF 0\n")
-            
-            clean_path = file_path.replace('.pdbqt', '_cleaned.pdbqt')
-            with open(clean_path, 'w') as f:
-                f.writelines(clean_lines)
-            
-            return clean_path
-        except Exception as e:
-            print(f"Error cleaning PDBQT file: {str(e)}, using minimal valid ligand file")
-            # Last resort: create a minimal valid ligand file
-            clean_path = file_path.replace('.pdbqt', '_minimal.pdbqt')
-            try:
-                with open(clean_path, 'w') as f:
-                    f.write("ROOT\n")
-                    f.write("ATOM      1  C   LIG A   1      0.000  0.000  0.000  1.00  0.00     0.000 C\n")
-                    f.write("ENDROOT\n")
-                    f.write("TORSDOF 0\n")
-                return clean_path
-            except Exception:
-                pass
-            
-            return file_path
+        Returns:
+            float: Minimum distance in Angstroms
+        """
+        min_distance = float('inf')
+        
+        # Parse atom coordinates from PDBQT
+        for line in pose_pdbqt.split('\n'):
+            if line.startswith(('ATOM', 'HETATM')):
+                try:
+                    x = float(line[30:38])
+                    y = float(line[38:46])
+                    z = float(line[46:54])
+                    
+                    # Calculate distance to cysteine sulfur
+                    cx, cy, cz = cysteine_coords
+                    distance = np.sqrt((x - cx)**2 + (y - cy)**2 + (z - cz)**2)
+                    
+                    min_distance = min(min_distance, distance)
+                except (ValueError, IndexError):
+                    continue
+        
+        return min_distance

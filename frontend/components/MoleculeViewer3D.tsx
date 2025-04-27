@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import dynamic from 'next/dynamic'
 
 // Dynamically import 3DMol with client-side only rendering
@@ -17,6 +17,7 @@ interface MoleculeViewer3DProps {
   showBindingSite?: boolean;
   showMolecule?: boolean;
   bindingSiteCoords?: { x: number; y: number; z: number };
+  poseCoordinates?: string;
 }
 
 export default function MoleculeViewer3D({
@@ -26,15 +27,22 @@ export default function MoleculeViewer3D({
   showBindingSite = true,
   showMolecule = true,
   bindingSiteCoords,
+  poseCoordinates,
 }: MoleculeViewer3DProps) {
+  // Normalize pdbqtUrl if it's a relative path
+  const normalizedPdbqtUrl = pdbqtUrl && !pdbqtUrl.startsWith('http') && pdbqtUrl !== '#' 
+    ? `http://localhost:8000${pdbqtUrl}` 
+    : pdbqtUrl;
+
   return (
     <Viewer
       pdbUrl={pdbUrl}
-      pdbqtUrl={pdbqtUrl}
+      pdbqtUrl={normalizedPdbqtUrl}
       showSurface={showSurface}
       showBindingSite={showBindingSite}
       showMolecule={showMolecule}
       bindingSiteCoords={bindingSiteCoords}
+      poseCoordinates={poseCoordinates}
     />
   );
 }

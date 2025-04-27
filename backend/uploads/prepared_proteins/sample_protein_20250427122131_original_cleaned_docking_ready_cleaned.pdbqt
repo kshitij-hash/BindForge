@@ -1,0 +1,24 @@
+REMARK  Name = /home/kshitij/dev/dorahacks/BindForge/backend/uploads/prepared_proteins/sample_protein_20250427122131_original_cleaned_docking_ready_cleaned.pdb
+ATOM      1  N   PRO A   1      29.361  31.093  66.848  0.00  0.00    -0.210 NA
+ATOM      2  CA  PRO A   1      30.307  30.556  67.826  0.00  0.00    +0.150 C 
+ATOM      3  C   PRO A   1      29.760  29.456  68.711  0.00  0.00    +0.258 C 
+ATOM      4  O   PRO A   1      28.933  28.657  68.290  0.00  0.00    -0.272 OA
+ATOM      5  CB  PRO A   1      31.441  29.985  66.953  0.00  0.00    +0.028 C 
+ATOM      6  CG  PRO A   1      30.712  29.632  65.698  0.00  0.00    +0.021 C 
+ATOM      7  CD  PRO A   1      29.317  30.042  66.016  0.00  0.00    +0.089 C 
+ATOM      8  N   GLN A   2      30.237  29.399  69.950  0.00  0.00    -0.197 NA
+ATOM      9  CA  GLN A   2      29.824  28.393  70.914  0.00  0.00    +0.173 C 
+ATOM     10  C   GLN A   2      30.893  27.337  71.108  0.00  0.00    +0.262 C 
+ATOM     11  O   GLN A   2      32.092  27.642  71.147  0.00  0.00    -0.271 OA
+ATOM     12  CB  GLN A   2      29.574  29.015  72.267  0.00  0.00    +0.041 C 
+ATOM     13  CG  GLN A   2      28.270  29.776  72.327  0.00  0.00    +0.091 C 
+ATOM     14  CD  GLN A   2      27.167  28.745  72.508  0.00  0.00    +0.261 C 
+ATOM     15  OE1 GLN A   2      27.316  27.511  72.790  0.00  0.00    -0.272 OA
+ATOM     16  NE2 GLN A   2      25.907  29.224  72.364  0.00  0.00    -0.088 NA
+ATOM     17  N   CYS A   3      30.504  26.062  71.214  0.00  0.00    -0.197 NA
+ATOM     18  CA  CYS A   3      31.457  24.968  71.384  0.00  0.00    +0.171 C 
+ATOM     19  C   CYS A   3      32.261  25.142  72.660  0.00  0.00    +0.230 C 
+ATOM     20  O   CYS A   3      33.433  24.767  72.701  0.00  0.00    -0.286 OA
+ATOM     21  CB  CYS A   3      30.723  23.612  71.407  0.00  0.00    +0.098 C 
+ATOM     22  SG  CYS A   3      30.100  23.115  69.792  0.00  0.00    -0.080 S 
+TER 

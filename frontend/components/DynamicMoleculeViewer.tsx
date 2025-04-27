@@ -10,6 +10,7 @@ interface DynamicMoleculeViewerProps {
   showBindingSite?: boolean;
   showMolecule?: boolean;
   bindingSiteCoords?: { x: number; y: number; z: number };
+  poseCoordinates?: string;
 }
 
 export default function DynamicMoleculeViewer({
@@ -19,6 +20,7 @@ export default function DynamicMoleculeViewer({
   showBindingSite = true,
   showMolecule = true,
   bindingSiteCoords,
+  poseCoordinates,
 }: DynamicMoleculeViewerProps) {
   const viewerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,11 +34,13 @@ export default function DynamicMoleculeViewer({
     });
     viewerRef.current = viewer;
 
-    // Load the protein structure
-    fetch(pdbUrl)
-      .then((response) => response.text())
-      .then((data) => {
-        viewer.addModel(data, "pdb");
+    // Load the protein structure and then the ligand
+    const loadMolecules = async () => {
+      try {
+        // First load protein
+        const proteinResponse = await fetch(pdbUrl);
+        const proteinData = await proteinResponse.text();
+        viewer.addModel(proteinData, "pdb");
         
         // Style protein
         viewer.setStyle({}, { cartoon: { color: "spectrum" } });
@@ -59,36 +63,45 @@ export default function DynamicMoleculeViewer({
           });
         }
         
-        // Load and display the ligand if available
-        if (pdbqtUrl && showMolecule) {
-          fetch(pdbqtUrl)
-            .then((response) => response.text())
-            .then((ligandData) => {
-              viewer.addModel(ligandData, "pdbqt");
-              viewer.setStyle({ model: -1 }, { stick: { colorscheme: "greenCarbon" } });
-              viewer.zoomTo();
-              viewer.render();
-            })
-            .catch((err) => {
-              console.error("Error loading ligand:", err);
-              viewer.zoomTo();
-              viewer.render();
-            });
-        } else {
-          viewer.zoomTo();
-          viewer.render();
+        // Try to load ligand from URL if available
+        if (pdbqtUrl && showMolecule && pdbqtUrl !== "#") {
+          try {
+            const ligandResponse = await fetch(pdbqtUrl);
+            const ligandData = await ligandResponse.text();
+            viewer.addModel(ligandData, "pdbqt");
+            viewer.setStyle({ model: -1 }, { stick: { colorscheme: "greenCarbon" } });
+          } catch (err) {
+            console.error("Error loading ligand from URL:", err);
+          }
+        } 
+        // If pdbqtUrl failed or doesn't exist, try poseCoordinates
+        else if (poseCoordinates && showMolecule) {
+          try {
+            viewer.addModel(poseCoordinates, "pdbqt");
+            viewer.setStyle({ model: -1 }, { stick: { colorscheme: "purpleCarbon" } });
+          } catch (err) {
+            console.error("Error loading pose coordinates:", err);
+          }
         }
-      })
-      .catch((error) => {
-        console.error("Error loading protein structure:", error);
-      });
+        
+        // Finally, zoom and render
+        viewer.zoomTo();
+        viewer.render();
+        
+      } catch (error) {
+        console.error("Error in molecule loading:", error);
+      }
+    };
+    
+    loadMolecules();
 
+    // Clean up function
     return () => {
       if (viewerRef.current) {
         viewerRef.current.clear();
       }
     };
-  }, [pdbUrl, pdbqtUrl, showSurface, showBindingSite, showMolecule, bindingSiteCoords]);
+  }, [pdbUrl, pdbqtUrl, showSurface, showBindingSite, showMolecule, bindingSiteCoords, poseCoordinates]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }

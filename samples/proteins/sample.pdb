@@ -1,0 +1,26 @@
+HEADER    PROTEIN KINASE                          15-MAR-10   3M2W              
+TITLE     CRYSTAL STRUCTURE OF HUMAN MK2 IN COMPLEX WITH A PYRROLE-BASED        
+TITLE    2 INHIBITOR                                                            
+COMPND    MOL_ID: 1;                                                            
+COMPND   2 MOLECULE: MAP KINASE-ACTIVATED PROTEIN KINASE 2;                     
+COMPND   3 CHAIN: A;                                                            
+COMPND   4 FRAGMENT: RESIDUES 41-364;                                           
+COMPND   5 EC: 2.7.11.1;                                                        
+COMPND   6 ENGINEERED: YES                                                      
+SOURCE    MOL_ID: 1;                                                            
+SOURCE   2 ORGANISM_SCIENTIFIC: HOMO SAPIENS;                                   
+SOURCE   3 ORGANISM_COMMON: HUMAN;                                              
+SOURCE   4 ORGANISM_TAXID: 9606;                                                
+SOURCE   5 GENE: MAPKAPK2, MK2;                                                 
+SOURCE   6 EXPRESSION_SYSTEM: ESCHERICHIA COLI;                                 
+SOURCE   7 EXPRESSION_SYSTEM_TAXID: 562                                        
+ATOM      1  N   SER A  41      24.901  27.040   2.455  1.00 55.48           N  
+ATOM      2  CA  SER A  41      24.855  26.729   3.909  1.00 54.94           C  
+ATOM      3  C   SER A  41      25.163  27.907   4.864  1.00 51.30           C  
+ATOM      4  O   SER A  41      25.271  27.697   6.070  1.00 49.77           O  
+ATOM      5  CB  SER A  41      23.513  26.097   4.265  1.00 58.40           C  
+ATOM      6  OG  SER A  41      22.472  27.046   4.183  1.00 62.09           O  
+ATOM      7  N   ARG A  42      25.303  29.127   4.330  1.00 46.56           N  
+ATOM      8  CA  ARG A  42      25.614  30.291   5.162  1.00 42.43           C  
+ATOM      9  C   ARG A  42      27.005  30.151   5.789  1.00 37.43           C  
+ATOM     10  O   ARG A  42      27.169  30.022   7.004  1.00 34.76           O  
